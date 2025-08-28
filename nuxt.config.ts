@@ -7,5 +7,11 @@ export default defineNuxtConfig({
     public: {
       backendHost: process.env.NUXT_BACKEND_HOST || 'http://localhost:8000/'
     }
+  },
+  app:{
+    head:{
+      title: 'RAG System',
+      meta:[{name:'viewport', content:'width=device-width, initial-scale=1'}]
   }
+  },
 })
