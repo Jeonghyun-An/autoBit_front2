@@ -1,11 +1,10 @@
-// composables/useApi.ts
 export type SourceMeta = {
+  chunk_index: null;
   id: string;
   title?: string;
   doc_id?: string;
   page?: number;
   score?: number;
-  chunk_index?: number;
   snippet?: string;
   url?: string;
   metadata?: Record<string, any>;
@@ -19,136 +18,75 @@ export type ChatMessage = {
   sources?: SourceMeta[];
 };
 
-type UploadResp =
-  | { doc_id?: string; job_id?: string; task_id?: string; id?: string }
-  | Record<string, any>;
-
-type JobResp =
-  | { status?: string; progress?: number; percent?: number; state?: string }
-  | { progress?: { percent?: number; value?: number } }
-  | Record<string, any>;
-
-type ChatResp =
-  | { answer: string; sources?: SourceMeta[] }
-  | Record<string, any>;
-
-function pick<T extends object, K extends string>(obj: T, keys: K[]): any {
-  for (const k of keys) if (k in (obj as any)) return (obj as any)[k];
-  return undefined;
-}
-
 export function useApi() {
   const config = useRuntimeConfig();
-  const API = (config.public.apiBase || "").replace(/\/$/, "");
-
-  // llama_router 경로가 다를 수 있어 환경변수로 오버라이드 가능하게 처리
-  // 예) .env에
-  // NUXT_PUBLIC_UPLOAD_PATH=/upload_document
-  // NUXT_PUBLIC_JOB_PATH=/job
-  // NUXT_PUBLIC_CHAT_PATH=/rag/chat
-  const UPLOAD_PATH = (config.public as any).uploadPath || "/upload";
-  const JOB_PATH = (config.public as any).jobPath || "/jobs";
-  const CHAT_PATH = (config.public as any).chatPath || "/chat";
-
-  // 어떤 서버는 "file"이 아닌 "document" 필드명을 요구할 수 있어 함께 전송
+  const API = (config.public.apiBase || "/llama").replace(/\/+$/, "");
+  console.log("[useApi] API base =", API);
   async function uploadDocument(file: File) {
     const form = new FormData();
     form.append("file", file);
-    form.append("document", file); // 백엔드가 document를 기대하는 경우 대비
-    // 필요 시 파일명/메타 부가 파라미터도 여기서 form.append(...) 추가
-
-    const url = `${API}${UPLOAD_PATH.startsWith("/") ? "" : "/"}${UPLOAD_PATH}`;
-    const res = await fetch(url, { method: "POST", body: form });
+    const res = await fetch(`${API}/upload`, { method: "POST", body: form });
     if (!res.ok) throw new Error(await res.text());
-
-    const data = (await res.json()) as UploadResp;
-
-    // job id 키 정규화
-    const job_id =
-      pick(data, ["job_id", "task_id", "id"]) ??
-      (data as any)?.job?.id ??
-      (data as any)?.task?.id;
-
-    const doc_id =
-      pick(data, ["doc_id"]) ??
-      (data as any)?.document_id ??
-      (data as any)?.doc?.id;
-
-    if (!job_id) {
-      // 색인을 동기로 처리하는 서버일 수 있으니 job이 없으면 100%로 간주하도록 프론트에서 처리하게 해도 됨
-      console.warn("uploadDocument: job id not found in response", data);
-    }
-    return { doc_id, job_id } as { doc_id?: string; job_id?: string };
+    // llama_router 업로드 응답 스키마 맞춤
+    return res.json() as Promise<{
+      filename: string;
+      minio_object: string;
+      indexed: string;
+      job_id: string;
+    }>;
   }
 
   async function getJobProgress(jobId: string) {
-    // 어떤 서버는 /job/{id} 또는 /jobs/{id}/progress 를 쓰기도 함
-    // 기본: /jobs/{id}
-    let url = `${API}${
-      JOB_PATH.startsWith("/") ? "" : "/"
-    }${JOB_PATH}/${encodeURIComponent(jobId)}`;
-    let res = await fetch(url);
-    if (!res.ok) {
-      // fallback: /jobs/{id}/progress
-      const alt = `${url}/progress`;
-      res = await fetch(alt);
-      if (!res.ok) throw new Error(await res.text());
-    }
-    const data = (await res.json()) as JobResp;
-
-    // 진행률 정규화
-    let progress =
-      typeof (data as any).progress === "number"
-        ? (data as any).progress
-        : (data as any).percent;
-
-    if (progress == null && typeof (data as any).progress === "object") {
-      const p = (data as any).progress;
-      progress = p?.percent ?? p?.value;
-    }
-    if (progress == null) progress = 0;
-
-    const status = (data as any).status ?? (data as any).state ?? "running";
-    // 일부 서버는 1.0(=100%)로 줄 수도 있어 보정
-    if (progress > 1 && progress <= 100) {
-      // already percentage
-    } else if (progress <= 1) {
-      progress = Math.round(progress * 100);
-    }
-    progress = Math.max(0, Math.min(100, Math.round(progress)));
-
-    return { status, progress };
+    // 라우터는 /job/{job_id} 입니다. (/jobs/{id} 아님)
+    const res = await fetch(`${API}/job/${jobId}`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json() as Promise<{ status: string; progress: number }>;
   }
 
   async function sendChat(
-    history: { role: "user" | "assistant"; content: string }[],
+    _history: { role: "user" | "assistant"; content: string }[],
     query: string
   ) {
-    const url = `${API}${CHAT_PATH.startsWith("/") ? "" : "/"}${CHAT_PATH}`;
-    const res = await fetch(url, {
+    // 백엔드 질의 엔드포인트는 /ask
+    const res = await fetch(`${API}/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ history, query }),
+      // 필요 시 모델명/탑K는 환경에 맞게 조정
+      body: JSON.stringify({
+        question: query,
+        model_name: "llama-3",
+        top_k: 3,
+      }),
     });
     if (!res.ok) throw new Error(await res.text());
-    const data = (await res.json()) as ChatResp;
+    const data = (await res.json()) as { answer: string; sources?: any[] };
 
-    // 다양한 키 대응 (e.g. output, result, message 등)
-    const answer =
-      (data as any).answer ??
-      (data as any).output ??
-      (data as any).result ??
-      (data as any).message ??
-      "";
+    // 서버 sources → 프론트 SourceMeta로 매핑
+    // 서버는 id/doc_id/page/section/chunk/score 필드를 내려줍니다. :contentReference[oaicite:5]{index=5}
+    const sources: SourceMeta[] = (data.sources || []).map((s, idx) => ({
+      chunk_index: null,
+      id: String(s.id ?? idx + 1),
+      title: s.section || undefined,
+      doc_id: s.doc_id,
+      page: s.page,
+      score: s.score,
+      snippet: String(s.chunk || "").replace(/^META:.*?\n/, ""), // META 라인 제거
+    }));
 
-    const sources =
-      (data as any).sources ??
-      (data as any).evidence ??
-      (data as any).contexts ??
-      [];
-
-    return { answer, sources } as { answer: string; sources?: SourceMeta[] };
+    return { answer: data.answer, sources };
   }
 
-  return { uploadDocument, getJobProgress, sendChat };
+  // (옵션) SSE로 진행상태 받기
+  function streamJob(jobId: string, onUpdate: (s: any) => void) {
+    const es = new EventSource(`${API}/job/${jobId}/stream`); // :contentReference[oaicite:6]{index=6}
+    es.onmessage = (e) => {
+      try {
+        onUpdate(JSON.parse(e.data));
+      } catch {}
+    };
+    es.onerror = () => es.close();
+    return () => es.close();
+  }
+
+  return { uploadDocument, getJobProgress, sendChat, streamJob };
 }

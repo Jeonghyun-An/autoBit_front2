@@ -7,6 +7,7 @@
       파일을 선택하면 임베딩을 시작합니다.
     </p>
     <button
+      type="button"
       class="px-4 py-2 rounded-xl bg-white/90 text-zinc-900 font-medium shadow hover:bg-white disabled:opacity-50"
       :disabled="disabled"
       @click="openFileDialog"
