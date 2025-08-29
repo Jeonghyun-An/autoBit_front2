@@ -1,7 +1,8 @@
 <template>
   <div class="h-screen w-full bg-zinc-950 text-zinc-100 flex">
-    <div class="flex-1 max-w-5xl mx-auto flex flex-col">
-      <!-- Header -->
+    <!-- min-h-0 추가 -->
+    <div class="flex-1 min-h-0 max-w-5xl mx-auto flex flex-col">
+      <!-- Header (고정) -->
       <div
         class="px-4 py-3 border-b border-zinc-800 sticky top-0 bg-zinc-950/80 backdrop-blur z-10"
       >
@@ -17,11 +18,11 @@
         </div>
       </div>
 
-      <!-- Body -->
-      <div class="flex-1 flex flex-col">
+      <!-- Body: 가운데만 스크롤 -->
+      <div class="flex-1 min-h-0 flex flex-col">
         <div
           v-if="messages.length === 0"
-          class="flex-1 grid place-items-center p-6"
+          class="flex-1 min-h-0 grid place-items-center p-6"
         >
           <div class="w-full max-w-xl space-y-6">
             <RagUploadCenter :disabled="uploading" @select="onUpload" />
@@ -34,29 +35,40 @@
           </div>
         </div>
 
-        <div v-else class="flex-1 overflow-auto space-y-4 p-4">
+        <!-- 버블 영역만 스크롤 -->
+        <div
+          v-else
+          ref="chatScroller"
+          class="flex-1 min-h-0 overflow-y-auto space-y-4 p-4"
+        >
           <RagMessageBubble v-for="m in messages" :key="m.id" :msg="m" />
           <div ref="endRef" />
         </div>
 
+        <!-- 인덱싱 진행 바 (하단 고정) -->
         <div
           v-if="jobId && progress < 100"
-          class="px-4 py-2 bg-zinc-900 border-t border-zinc-800"
+          class="shrink-0 px-4 py-2 bg-zinc-900 border-t border-zinc-800"
         >
           <RagProgressBar :value="progress" label="인덱싱 진행률" />
         </div>
       </div>
 
-      <!-- Input -->
-      <RagInputBar :disabled="!canChat" @send="onSend" />
+      <!-- Input: 하단 고정 + 자동리사이즈, 높이 변하면 버블 영역을 아래에 붙임 -->
+      <div class="shrink-0">
+        <RagInputBar
+          :disabled="!canChat"
+          @send="onSend"
+          @height-changed="onInputResize"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, watch, nextTick, computed } from "vue";
 import { useApi, type ChatMessage } from "@/composables/useApi";
-
 import RagUploadCenter from "@/components/Rag/UploadCenter.vue";
 import RagProgressBar from "~/components/Rag/ProgressBar.vue";
 import RagMessageBubble from "@/components/Rag/MessageBubble.vue";
@@ -71,14 +83,20 @@ const progress = ref(0);
 const blocking = ref(true);
 
 const endRef = ref<HTMLElement | null>(null);
-watch(messages, async () => {
-  await nextTick();
-  endRef.value?.scrollIntoView({ behavior: "smooth" });
-});
+const chatScroller = ref<HTMLElement | null>(null);
+
+function scrollToEnd(behavior: ScrollBehavior = "smooth") {
+  nextTick(() => {
+    endRef.value?.scrollIntoView({ behavior, block: "end" });
+    const el = chatScroller.value;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior });
+  });
+}
+
+watch(messages, () => scrollToEnd("smooth"));
 
 watch(jobId, (val) => {
   if (!val) return;
-  // poll progress
   const timer = setInterval(async () => {
     try {
       const s = await getJobProgress(val);
@@ -96,7 +114,7 @@ const onUpload = async (file: File) => {
   progress.value = 0;
   try {
     const { job_id } = await uploadDocument(file);
-    jobId.value = job_id ?? null;
+    jobId.value = job_id;
   } catch (e: any) {
     alert(`업로드 실패: ${e?.message || e}`);
   } finally {
@@ -141,8 +159,9 @@ const onSend = async (query: string) => {
     messages.value = [...messages.value, botMsg];
   }
 };
-</script>
 
-<style>
-/* If you don't use Tailwind, you can replace classes or add your own minimal styles here. */
-</style>
+// 입력창 높이 변하면 버블 영역을 아래에 붙임
+function onInputResize(_: number) {
+  scrollToEnd("auto");
+}
+</script>
