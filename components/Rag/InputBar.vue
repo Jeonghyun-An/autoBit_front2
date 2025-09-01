@@ -9,7 +9,7 @@
           :placeholder="
             disabled
               ? '임베딩이 완료되면 질문할 수 있어요…'
-              : '질문을 입력하세요. Shift+Enter 줄바꿈'
+              : '질문을 입력하세요. 무엇이 궁금한가요?'
           "
           v-model="value"
           :disabled="disabled"

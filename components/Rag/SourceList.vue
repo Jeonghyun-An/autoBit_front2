@@ -9,9 +9,9 @@
       class="rounded-xl border border-zinc-800 p-3 bg-zinc-900/40"
     >
       <div class="flex items-center justify-between gap-3">
-        <div class="font-medium text-sm">
+        <!-- <div class="font-medium text-sm">
           {{ s.title || s.metadata?.title || s.doc_id || "문서" }}
-        </div>
+        </div> -->
         <span v-if="typeof s.score === 'number'" class="text-xs text-zinc-400"
           >score {{ s.score.toFixed(3) }}</span
         >
@@ -22,9 +22,7 @@
       <div class="mt-2 text-xs text-zinc-400 flex flex-wrap gap-2">
         <span v-if="s.page != null">p.{{ s.page }}</span>
         <span v-if="s.chunk_index != null">chunk #{{ s.chunk_index }}</span>
-        <span v-if="s.metadata?.section"
-          >section: {{ s.metadata.section }}</span
-        >
+        <span v-if="s.metadata?.section">TITLE: {{ s.metadata.section }}</span>
         <a
           v-if="s.url"
           class="underline underline-offset-2 hover:text-zinc-200"
