@@ -131,10 +131,10 @@ import {
 } from "vue";
 import { useApi, type ChatMessage } from "@/composables/useApi";
 
-import RagUploadCenter from "@/components/Rag/UploadCenter.vue";
-import RagProgressBar from "~/components/Rag/ProgressBar.vue";
-import RagMessageBubble from "@/components/Rag/MessageBubble.vue";
-import RagInputBar from "@/components/Rag/InputBar.vue";
+import RagUploadCenter from "@/components/Chat/UploadCenter.vue";
+import RagProgressBar from "~/components/Chat/ProgressBar.vue";
+import RagMessageBubble from "@/components/Chat/MessageBubble.vue";
+import RagInputBar from "@/components/Chat/InputBar.vue";
 
 const { uploadDocument, getJobProgress, sendChat, listFiles, getFileUrl } =
   useApi();
