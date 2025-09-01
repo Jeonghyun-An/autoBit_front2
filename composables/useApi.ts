@@ -1,10 +1,11 @@
+// composables/useApi.ts
 export type SourceMeta = {
-  chunk_index: null;
   id: string;
   title?: string;
   doc_id?: string;
   page?: number;
   score?: number;
+  chunk_index?: number;
   snippet?: string;
   url?: string;
   metadata?: Record<string, any>;
@@ -18,16 +19,30 @@ export type ChatMessage = {
   sources?: SourceMeta[];
 };
 
+export type DocItem = {
+  doc_id: string;
+  title?: string;
+  object_key?: string;
+  url?: string;
+  uploaded_at?: string;
+};
+
+// 라우터에 맞춘 API들
 export function useApi() {
   const config = useRuntimeConfig();
   const API = (config.public.apiBase || "/llama").replace(/\/+$/, "");
-  console.log("[useApi] API base =", API);
-  async function uploadDocument(file: File) {
+
+  async function uploadDocument(
+    file: File,
+    mode: "skip" | "version" | "replace" = "version"
+  ) {
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch(`${API}/upload`, { method: "POST", body: form });
+    const res = await fetch(`${API}/upload?mode=${mode}`, {
+      method: "POST",
+      body: form,
+    });
     if (!res.ok) throw new Error(await res.text());
-    // llama_router 업로드 응답 스키마 맞춤
     return res.json() as Promise<{
       filename: string;
       minio_object: string;
@@ -37,56 +52,85 @@ export function useApi() {
   }
 
   async function getJobProgress(jobId: string) {
-    // 라우터는 /job/{job_id} 입니다. (/jobs/{id} 아님)
-    const res = await fetch(`${API}/job/${jobId}`);
+    const res = await fetch(`${API}/job/${encodeURIComponent(jobId)}`);
     if (!res.ok) throw new Error(await res.text());
     return res.json() as Promise<{ status: string; progress: number }>;
   }
+  function normalizeSources(raw: any[]): SourceMeta[] {
+    return (raw || []).map((s: any, i: number) => {
+      // 스니펫 후보들 중 하나 고르고, META 프리앰블 제거
+      const textCandidate =
+        (typeof s.snippet === "string" && s.snippet) ||
+        (typeof s.chunk === "string" && s.chunk) ||
+        (typeof s.text === "string" && s.text) ||
+        (typeof s.content === "string" && s.content) ||
+        (typeof s?.metadata?.text === "string" && s.metadata.text) ||
+        "";
+      const cleaned = textCandidate.replace(/^META:.*?\n/, "");
 
+      return {
+        id: String(s.id ?? i + 1),
+        title:
+          s.title ?? s.section ?? s?.metadata?.title ?? s?.metadata?.section,
+        doc_id: s.doc_id ?? s?.metadata?.doc_id,
+        page: s.page ?? s.page_num ?? s?.metadata?.page,
+        score: s.score ?? s.relevance ?? s.similarity,
+        chunk_index: s.chunk_index ?? s.idx ?? s.index,
+        snippet: cleaned,
+        url: s.url ?? s.link ?? s.source_url,
+        metadata: s.metadata ?? { section: s.section },
+      };
+    });
+  }
   async function sendChat(
     _history: { role: "user" | "assistant"; content: string }[],
     query: string
   ) {
-    // 백엔드 질의 엔드포인트는 /ask
+    // 라우터 AskReq: { question, model_name?, top_k? }
     const res = await fetch(`${API}/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // 필요 시 모델명/탑K는 환경에 맞게 조정
-      body: JSON.stringify({
-        question: query,
-        model_name: "llama-3",
-        top_k: 3,
-      }),
+      body: JSON.stringify({ question: query, top_k: 3 }), // model_name은 서버 기본값 사용
     });
     if (!res.ok) throw new Error(await res.text());
-    const data = (await res.json()) as { answer: string; sources?: any[] };
+    const data = await res.json();
+    const answer = data.answer ?? data.output ?? data.result ?? "";
+    const rawSources = Array.isArray(data.sources)
+      ? data.sources
+      : Array.isArray(data.evidence)
+      ? data.evidence
+      : Array.isArray(data.contexts)
+      ? data.contexts
+      : [];
 
-    // 서버 sources → 프론트 SourceMeta로 매핑
-    // 서버는 id/doc_id/page/section/chunk/score 필드를 내려줍니다. :contentReference[oaicite:5]{index=5}
-    const sources: SourceMeta[] = (data.sources || []).map((s, idx) => ({
-      chunk_index: null,
-      id: String(s.id ?? idx + 1),
-      title: s.section || undefined,
-      doc_id: s.doc_id,
-      page: s.page,
-      score: s.score,
-      snippet: String(s.chunk || "").replace(/^META:.*?\n/, ""), // META 라인 제거
-    }));
-
-    return { answer: data.answer, sources };
+    const sources = normalizeSources(rawSources);
+    return { answer, sources } as { answer: string; sources?: SourceMeta[] };
   }
 
-  // (옵션) SSE로 진행상태 받기
-  function streamJob(jobId: string, onUpdate: (s: any) => void) {
-    const es = new EventSource(`${API}/job/${jobId}/stream`); // :contentReference[oaicite:6]{index=6}
-    es.onmessage = (e) => {
-      try {
-        onUpdate(JSON.parse(e.data));
-      } catch {}
-    };
-    es.onerror = () => es.close();
-    return () => es.close();
+  // ===== 새로 추가: 파일/상태 조회 =====
+
+  // MinIO의 uploaded/ 아래 파일 목록 -> object_name 문자열 배열
+  async function listFiles(prefix = "uploaded/") {
+    const url = `${API}/files?prefix=${encodeURIComponent(prefix)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(await res.text());
+    const data = (await res.json()) as { files: string[] };
+    return data.files || [];
   }
 
-  return { uploadDocument, getJobProgress, sendChat, streamJob };
+  // 특정 object_name의 presigned URL (GET)
+  async function getFileUrl(
+    objectName: string,
+    minutes = 60,
+    downloadName?: string
+  ) {
+    const q = new URLSearchParams({ minutes: String(minutes) });
+    if (downloadName) q.set("download_name", downloadName);
+    const url = `${API}/file/${encodeURIComponent(objectName)}?${q.toString()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(await res.text());
+    return (await res.json()) as { url: string };
+  }
+
+  return { uploadDocument, getJobProgress, sendChat, listFiles, getFileUrl };
 }
