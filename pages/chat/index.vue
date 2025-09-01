@@ -1,31 +1,86 @@
 <template>
   <div class="h-screen w-full bg-zinc-950 text-zinc-100 flex">
-    <!-- min-h-0 추가 -->
     <div class="flex-1 min-h-0 max-w-5xl mx-auto flex flex-col">
-      <!-- Header (고정) -->
+      <!-- Header -->
       <div
         class="px-4 py-3 border-b border-zinc-800 sticky top-0 bg-zinc-950/80 backdrop-blur z-10"
       >
         <div class="flex items-center justify-between">
           <div class="text-lg font-semibold">RAG Chat</div>
-          <div class="text-xs text-zinc-400">
-            <span v-if="progress >= 100" class="text-emerald-400"
-              >임베딩 완료</span
+
+          <!-- 우측 상태/토글 -->
+          <div class="relative text-xs text-zinc-400 docs-toggle-area">
+            <button
+              v-if="hasData"
+              type="button"
+              class="px-2 py-1 rounded-md hover:bg-zinc-800/60"
+              @click="docsOpen = !docsOpen"
             >
-            <span v-else-if="jobId">임베딩 진행 중… {{ progress }}%</span>
-            <span v-else>문서 업로드 대기</span>
+              문서 {{ docs.length }}개 ▾
+            </button>
+            <template v-else>
+              <span v-if="progress >= 100" class="text-emerald-400"
+                >임베딩 완료</span
+              >
+              <span v-else-if="jobId">임베딩 진행 중… {{ progress }}%</span>
+              <span v-else>문서 업로드 대기</span>
+            </template>
+
+            <!-- 토글 목록 -->
+            <div
+              v-if="docsOpen"
+              class="absolute right-0 mt-2 w-[22rem] max-h-[11.5rem] overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/95 shadow-lg p-2 scrollbar-zinc"
+            >
+              <div
+                v-if="!docs.length"
+                class="px-3 py-6 text-center text-zinc-400"
+              >
+                목록이 비어 있습니다.
+              </div>
+              <ul v-else class="text-sm divide-y divide-zinc-800">
+                <li
+                  v-for="d in docs"
+                  :key="d.object_key"
+                  class="py-2 px-2 flex items-center justify-between gap-2"
+                >
+                  <div class="truncate">
+                    <div class="font-medium truncate">{{ d.name }}</div>
+                    <div class="text-[11px] text-zinc-500">
+                      {{ d.object_key }}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="shrink-0 text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
+                    @click="openOriginal(d.object_key, d.name)"
+                  >
+                    원본 열기
+                  </button>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Body: 가운데만 스크롤 -->
+      <!-- Body: only chat scrolls -->
       <div class="flex-1 min-h-0 flex flex-col">
         <div
           v-if="messages.length === 0"
           class="flex-1 min-h-0 grid place-items-center p-6"
         >
           <div class="w-full max-w-xl space-y-6">
-            <RagUploadCenter :disabled="uploading" @select="onUpload" />
+            <RagUploadCenter
+              :disabled="uploading"
+              @select="onUpload"
+              :title="hasData ? '문서 추가 업로드' : '문서 업로드'"
+              :description="
+                hasData
+                  ? '추가로 문서를 업로드하여 지식을 확장합니다.'
+                  : 'PDF / DOCX / HWPX 파일을 선택하면 임베딩을 시작합니다.'
+              "
+              :button-text="hasData ? '추가로 업로드 하기' : '업로드 하기'"
+            />
             <div v-if="jobId" class="pt-2">
               <RagProgressBar :value="progress" />
               <div class="text-xs text-zinc-500 mt-1">
@@ -35,7 +90,7 @@
           </div>
         </div>
 
-        <!-- 버블 영역만 스크롤 -->
+        <!-- Chat list -->
         <div
           v-else
           ref="chatScroller"
@@ -45,7 +100,6 @@
           <div ref="endRef" />
         </div>
 
-        <!-- 인덱싱 진행 바 (하단 고정) -->
         <div
           v-if="jobId && progress < 100"
           class="shrink-0 px-4 py-2 bg-zinc-900 border-t border-zinc-800"
@@ -54,7 +108,7 @@
         </div>
       </div>
 
-      <!-- Input: 하단 고정 + 자동리사이즈, 높이 변하면 버블 영역을 아래에 붙임 -->
+      <!-- Input: enabled if hasData or indexing finished -->
       <div class="shrink-0">
         <RagInputBar
           :disabled="!canChat"
@@ -67,14 +121,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from "vue";
+import {
+  ref,
+  watch,
+  nextTick,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+} from "vue";
 import { useApi, type ChatMessage } from "@/composables/useApi";
+
 import RagUploadCenter from "@/components/Rag/UploadCenter.vue";
 import RagProgressBar from "~/components/Rag/ProgressBar.vue";
 import RagMessageBubble from "@/components/Rag/MessageBubble.vue";
 import RagInputBar from "@/components/Rag/InputBar.vue";
 
-const { uploadDocument, getJobProgress, sendChat } = useApi();
+const { uploadDocument, getJobProgress, sendChat, listFiles, getFileUrl } =
+  useApi();
 
 const messages = ref<ChatMessage[]>([]);
 const uploading = ref(false);
@@ -82,9 +145,52 @@ const jobId = ref<string | null>(null);
 const progress = ref(0);
 const blocking = ref(true);
 
+// ===== 새로 추가: 초기 데이터/문서 목록 =====
+type DocRow = { object_key: string; name: string };
+const hasData = ref(false);
+const docsOpen = ref(false);
+const docs = ref<DocRow[]>([]);
+
+async function refreshDocs() {
+  try {
+    const files = await listFiles("uploaded/");
+    docs.value = files.map((obj) => {
+      const base = obj.split("/").pop() || obj;
+      return { object_key: obj, name: base };
+    });
+    hasData.value = docs.value.length > 0;
+  } catch {
+    hasData.value = false;
+    docs.value = [];
+  }
+}
+
+async function openOriginal(objectKey: string, name?: string) {
+  try {
+    const { url } = await getFileUrl(objectKey, 60, name);
+    window.open(url, "_blank", "noopener,noreferrer");
+  } catch (e) {
+    alert("원본 파일 URL 생성 실패");
+    console.warn(e);
+  }
+}
+
+// 토글 외부 클릭 시 닫기
+function onGlobalClick(e: MouseEvent) {
+  const target = e.target as HTMLElement;
+  if (!target.closest(".docs-toggle-area")) docsOpen.value = false;
+}
+
+onMounted(() => {
+  refreshDocs();
+  window.addEventListener("click", onGlobalClick);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener("click", onGlobalClick);
+});
+
 const endRef = ref<HTMLElement | null>(null);
 const chatScroller = ref<HTMLElement | null>(null);
-
 function scrollToEnd(behavior: ScrollBehavior = "smooth") {
   nextTick(() => {
     endRef.value?.scrollIntoView({ behavior, block: "end" });
@@ -92,7 +198,6 @@ function scrollToEnd(behavior: ScrollBehavior = "smooth") {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior });
   });
 }
-
 watch(messages, () => scrollToEnd("smooth"));
 
 watch(jobId, (val) => {
@@ -102,7 +207,10 @@ watch(jobId, (val) => {
       const s = await getJobProgress(val);
       progress.value = s.progress ?? 0;
       blocking.value = (s.progress ?? 0) < 100;
-      if (progress.value >= 100) clearInterval(timer);
+      if (progress.value >= 100) {
+        clearInterval(timer);
+        await refreshDocs(); // 색인 끝나면 목록/상태 갱신
+      }
     } catch (e) {
       console.warn("progress error", e);
     }
@@ -122,7 +230,9 @@ const onUpload = async (file: File) => {
   }
 };
 
-const canChat = computed(() => !blocking.value && progress.value >= 100);
+const canChat = computed(
+  () => hasData.value || (!blocking.value && progress.value >= 100)
+);
 
 const onSend = async (query: string) => {
   const userMsg: ChatMessage = {
@@ -160,8 +270,7 @@ const onSend = async (query: string) => {
   }
 };
 
-// 입력창 높이 변하면 버블 영역을 아래에 붙임
-function onInputResize(_: number) {
+function onInputResize(_h: number) {
   scrollToEnd("auto");
 }
 </script>
