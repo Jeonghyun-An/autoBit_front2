@@ -151,12 +151,28 @@ const hasData = ref(false);
 const docsOpen = ref(false);
 const docs = ref<DocRow[]>([]);
 
+// 내부 관리 키 제외: 해시 플래그/메타는 목록에서 숨김
+function isInternalObject(key: string) {
+  if (key.endsWith(".flag")) return true;
+  if (key.startsWith("uploaded/__hash__/")) return true;
+  return false;
+}
+
+// 보기용 이름: uuidprefix_ 제거
+function prettyName(base: string) {
+  if (/^[0-9a-fA-F]{32}_/.test(base)) return base.slice(33);
+  return base;
+}
+
 async function refreshDocs() {
   try {
     const files = await listFiles("uploaded/");
-    docs.value = files.map((obj) => {
+    const visible = files
+      .filter((obj) => !isInternalObject(obj))
+      .filter((obj) => obj.toLowerCase().endsWith(".pdf")); // PDF만 노출
+    docs.value = visible.map((obj) => {
       const base = obj.split("/").pop() || obj;
-      return { object_key: obj, name: base };
+      return { object_key: obj, name: prettyName(base) };
     });
     hasData.value = docs.value.length > 0;
   } catch {
@@ -165,14 +181,12 @@ async function refreshDocs() {
   }
 }
 
+// "원본 열기" → 앱 내 PDF 뷰어로 이동
 async function openOriginal(objectKey: string, name?: string) {
-  try {
-    const { url } = await getFileUrl(objectKey, 60, name);
-    window.open(url, "_blank", "noopener,noreferrer");
-  } catch (e) {
-    alert("원본 파일 URL 생성 실패");
-    console.warn(e);
-  }
+  const q = new URLSearchParams({ object: objectKey });
+  if (name) q.set("name", name);
+  docsOpen.value = false;
+  await navigateTo(`/viewer?${q.toString()}`);
 }
 
 // 토글 외부 클릭 시 닫기
