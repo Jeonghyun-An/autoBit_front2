@@ -40,19 +40,21 @@
               <ul v-else class="text-sm divide-y divide-zinc-800">
                 <li
                   v-for="d in docs"
-                  :key="d.object_key"
+                  :key="d.object_key || d.doc_id"
                   class="py-2 px-2 flex items-center justify-between gap-2"
                 >
                   <div class="truncate">
-                    <div class="font-medium truncate">{{ d.name }}</div>
-                    <div class="text-[11px] text-zinc-500">
-                      {{ d.object_key }}
+                    <div class="font-medium truncate">
+                      {{ d.title || d.doc_id }}
+                    </div>
+                    <div v-if="d.uploaded_at" class="text-[11px] text-zinc-500">
+                      {{ d.uploaded_at }}
                     </div>
                   </div>
                   <button
                     type="button"
                     class="shrink-0 text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
-                    @click="openOriginal(d.object_key, d.name)"
+                    @click="openPdf(d)"
                   >
                     원본 열기
                   </button>
@@ -129,15 +131,21 @@ import {
   onMounted,
   onBeforeUnmount,
 } from "vue";
-import { useApi, type ChatMessage } from "@/composables/useApi";
+import { useApi, type ChatMessage, type DocItem } from "@/composables/useApi";
 
 import RagUploadCenter from "@/components/Chat/UploadCenter.vue";
 import RagProgressBar from "~/components/Chat/ProgressBar.vue";
 import RagMessageBubble from "@/components/Chat/MessageBubble.vue";
 import RagInputBar from "@/components/Chat/InputBar.vue";
 
-const { uploadDocument, getJobProgress, sendChat, listFiles, getFileUrl } =
-  useApi();
+const {
+  uploadDocument,
+  getJobProgress,
+  sendChat,
+  getStatus,
+  listDocs,
+  getFileUrl,
+} = useApi();
 
 const messages = ref<ChatMessage[]>([]);
 const uploading = ref(false);
@@ -145,66 +153,63 @@ const jobId = ref<string | null>(null);
 const progress = ref(0);
 const blocking = ref(true);
 
-// ===== 새로 추가: 초기 데이터/문서 목록 =====
-type DocRow = { object_key: string; name: string };
+// ===== 문서 목록/상태 =====
 const hasData = ref(false);
 const docsOpen = ref(false);
-const docs = ref<DocRow[]>([]);
+const docs = ref<DocItem[]>([]);
 
-// 내부 관리 키 제외: 해시 플래그/메타는 목록에서 숨김
-function isInternalObject(key: string) {
-  if (key.endsWith(".flag")) return true;
-  if (key.startsWith("uploaded/__hash__/")) return true;
-  return false;
-}
-
-// 보기용 이름: uuidprefix_ 제거
-function prettyName(base: string) {
-  if (/^[0-9a-fA-F]{32}_/.test(base)) return base.slice(33);
-  return base;
-}
-
-async function refreshDocs() {
+async function refreshStatusAndDocs() {
   try {
-    const files = await listFiles("uploaded/");
-    const visible = files
-      .filter((obj) => !isInternalObject(obj))
-      .filter((obj) => obj.toLowerCase().endsWith(".pdf")); // PDF만 노출
-    docs.value = visible.map((obj) => {
-      const base = obj.split("/").pop() || obj;
-      return { object_key: obj, name: prettyName(base) };
-    });
-    hasData.value = docs.value.length > 0;
+    const s = await getStatus();
+    hasData.value = !!s.has_data;
   } catch {
     hasData.value = false;
+  }
+  if (hasData.value) {
+    try {
+      docs.value = await listDocs();
+    } catch {
+      docs.value = [];
+    }
+  } else {
     docs.value = [];
   }
 }
 
-// "원본 열기" → 앱 내 PDF 뷰어로 이동
-async function openOriginal(objectKey: string, name?: string) {
-  const q = new URLSearchParams({ object: objectKey });
-  if (name) q.set("name", name);
-  docsOpen.value = false;
-  await navigateTo(`/viewer?${q.toString()}`);
-}
-
-// 토글 외부 클릭 시 닫기
-function onGlobalClick(e: MouseEvent) {
-  const target = e.target as HTMLElement;
-  if (!target.closest(".docs-toggle-area")) docsOpen.value = false;
-}
-
 onMounted(() => {
-  refreshDocs();
+  refreshStatusAndDocs();
   window.addEventListener("click", onGlobalClick);
 });
+
 onBeforeUnmount(() => {
   window.removeEventListener("click", onGlobalClick);
 });
 
+// 헤더 토글 외부 클릭 시 닫기
+function onGlobalClick(e: MouseEvent) {
+  const target = e.target as HTMLElement;
+  if (!target.closest(".docs-toggle-area")) docsOpen.value = false;
+}
+const encodeObjectPath = (k: string) =>
+  k.split("/").map(encodeURIComponent).join("/");
+// PDF 보기(프리사인 URL을 새 탭으로)
+async function openPdf(d: DocItem) {
+  try {
+    const runtime = useRuntimeConfig();
+    const API = (runtime.public.apiBase || "/llama").replace(/\/+$/, "");
+    const name = d.title || d.doc_id || "document.pdf";
+    const pathKey = encodeObjectPath(String(d.object_key));
+    const url = `${API}/view/${pathKey}?name=${encodeURIComponent(name)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  } catch (e) {
+    alert("파일 URL 생성 실패");
+    console.warn(e);
+  }
+}
+
 const endRef = ref<HTMLElement | null>(null);
 const chatScroller = ref<HTMLElement | null>(null);
+
 function scrollToEnd(behavior: ScrollBehavior = "smooth") {
   nextTick(() => {
     endRef.value?.scrollIntoView({ behavior, block: "end" });
@@ -212,6 +217,7 @@ function scrollToEnd(behavior: ScrollBehavior = "smooth") {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior });
   });
 }
+
 watch(messages, () => scrollToEnd("smooth"));
 
 watch(jobId, (val) => {
@@ -223,7 +229,12 @@ watch(jobId, (val) => {
       blocking.value = (s.progress ?? 0) < 100;
       if (progress.value >= 100) {
         clearInterval(timer);
-        await refreshDocs(); // 색인 끝나면 목록/상태 갱신
+        hasData.value = true;
+        try {
+          docs.value = await listDocs();
+        } catch {
+          docs.value = [];
+        }
       }
     } catch (e) {
       console.warn("progress error", e);
@@ -285,6 +296,7 @@ const onSend = async (query: string) => {
 };
 
 function onInputResize(_h: number) {
+  // 입력창 높이가 변하면 하단 고정 유지
   scrollToEnd("auto");
 }
 </script>
