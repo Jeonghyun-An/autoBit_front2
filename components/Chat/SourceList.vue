@@ -9,28 +9,53 @@
       class="rounded-xl border border-zinc-800 p-3 bg-zinc-900/40"
     >
       <div class="flex items-center justify-between gap-3">
-        <!-- <div class="font-medium text-sm">
-          {{ s.title || s.metadata?.title || s.doc_id || "문서" }}
-        </div> -->
-        <span v-if="typeof s.score === 'number'" class="text-xs text-zinc-400"
-          >score {{ s.score.toFixed(3) }}</span
-        >
+        <span v-if="typeof s.score === 'number'" class="text-xs text-zinc-400">
+          score {{ s.score.toFixed(3) }}
+        </span>
       </div>
+
       <div class="mt-1 text-sm text-zinc-300 whitespace-pre-line">
         {{ (s.snippet && s.snippet.trim()) || s.metadata?.text?.slice(0, 300) }}
       </div>
+
       <div class="mt-2 text-xs text-zinc-400 flex flex-wrap gap-2">
         <span v-if="s.page != null">p.{{ s.page }}</span>
         <span v-if="s.chunk_index != null">chunk #{{ s.chunk_index }}</span>
-        <span v-if="s.metadata?.section">TITLE: {{ s.metadata.section }}</span>
-        <a
-          v-if="s.url"
+        <span v-if="s.metadata?.section"
+          >section: {{ s.metadata.section }}</span
+        >
+
+        <!-- 1) url이 앱 내부 라우트(/로 시작)면 NuxtLink -->
+        <NuxtLink
+          v-if="s.url && s.url.startsWith('/')"
+          :to="s.url"
           class="underline underline-offset-2 hover:text-zinc-200"
-          :href="s.url"
           target="_blank"
           rel="noreferrer"
-          >원문 열기</a
         >
+          원문 열기
+        </NuxtLink>
+
+        <!-- 2) 외부 URL이면 a 링크 -->
+        <a
+          v-else-if="s.url"
+          :href="s.url"
+          class="underline underline-offset-2 hover:text-zinc-200"
+          target="_blank"
+          rel="noreferrer"
+        >
+          원문 열기
+        </a>
+
+        <!-- 3) url이 비어있으면 폴백 핸들러로 동작 -->
+        <button
+          v-else
+          type="button"
+          class="underline underline-offset-2 hover:text-zinc-200"
+          @click="openSource(s)"
+        >
+          원문 열기
+        </button>
       </div>
     </div>
   </div>
@@ -38,6 +63,30 @@
 
 <script setup lang="ts">
 import type { SourceMeta } from "@/composables/useApi";
+import { useApi } from "@/composables/useApi";
 
 defineProps<{ sources?: SourceMeta[] }>();
+const { resolveObjectKeyByDocId, getViewUrl } = useApi();
+
+async function openSource(s: SourceMeta) {
+  try {
+    // url이 있으면 그걸 사용 (안전망)
+    if (s.url) {
+      window.open(s.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    // doc_id → object_key 매핑해서 뷰어 라우트 구성
+    const key = await resolveObjectKeyByDocId(s.doc_id || "");
+    if (!key) {
+      alert("원문 경로를 찾지 못했습니다.");
+      return;
+    }
+    const name = s.title || `${s.doc_id}.pdf`;
+    const viewer = getViewUrl(key, name, s.page ?? undefined);
+    window.open(viewer, "_blank", "noopener,noreferrer");
+  } catch (e) {
+    console.warn(e);
+    alert("원문을 여는 중 오류가 발생했습니다.");
+  }
+}
 </script>
