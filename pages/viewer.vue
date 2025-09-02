@@ -8,6 +8,7 @@
           type="button"
           class="px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
           @click="goBack"
+          aria-label="뒤로가기"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -27,9 +28,8 @@
       </div>
       <div class="flex items-center gap-2">
         <a
-          v-if="url"
-          :href="url"
-          download
+          v-if="downloadUrl"
+          :href="downloadUrl"
           target="_blank"
           rel="noopener"
           class="px-3 py-1.5 rounded-md bg-indigo-500 hover:bg-indigo-400 text-white text-sm"
@@ -41,57 +41,74 @@
 
     <main class="flex-1 min-h-0">
       <div
-        v-if="error"
+        v-if="!objectKey"
         class="h-full grid place-items-center text-zinc-400 px-6 text-center"
       >
         <div>
-          <div class="text-lg font-semibold mb-2">문서를 열 수 없습니다</div>
-          <p class="text-sm">{{ error }}</p>
+          <div class="text-lg font-semibold mb-2">문서 키가 없습니다</div>
+          <p class="text-sm">
+            /viewer?object=uploaded/파일명.pdf&name=표시이름&orig=uploaded/originals/원본파일
+            형태로 접근해주세요.
+          </p>
         </div>
       </div>
 
       <iframe
-        v-else-if="url"
-        :src="url"
+        v-else
+        :src="viewerUrl"
         class="w-full h-full"
         title="PDF Viewer"
       />
-      <div v-else class="h-full grid place-items-center text-zinc-400">
-        불러오는 중…
-      </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { useRoute } from "#imports";
+import { computed } from "vue";
+import { useRoute, navigateTo } from "#imports";
 import { useApi } from "@/composables/useApi";
 
 const route = useRoute();
-const { getFileUrl } = useApi();
+const { getViewUrl, getDownloadUrl } = useApi();
 
-const url = ref<string | null>(null);
-const error = ref<string | null>(null);
-
-const objectKey = String(route.query.object || "");
-const displayName = String(
-  route.query.name || objectKey.split("/").pop() || "문서"
+// 보기용(PDF) object
+const objectKey = computed(() => String(route.query.object || ""));
+// 다운로드용(원본) object — 없으면 PDF로 폴백
+const origKey = computed(() =>
+  String(route.query.orig || route.query.object || "")
 );
 
-async function load() {
-  try {
-    const { url: presigned } = await getFileUrl(objectKey, 60, displayName);
-    url.value = presigned;
-  } catch (e: any) {
-    error.value = e?.message || "프리사인 URL 생성 실패";
-  }
-}
+// 표시 이름
+const displayName = computed(() => {
+  const qn = String(route.query.name || "");
+  if (qn) return qn;
+  const base = objectKey.value.split("/").pop() || "문서.pdf";
+  return base;
+});
+
+// page 쿼리가 있으면 해당 페이지로 열기
+const page = computed(() => {
+  const raw = String(route.query.page ?? "");
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+});
+
+// 뷰어 URL: /view/{PDF} + #page
+const viewerUrl = computed(() => {
+  if (!objectKey.value) return "";
+  let url = getViewUrl(objectKey.value, displayName.value);
+  if (page.value) url += `#page=${page.value}`;
+  return url;
+});
+
+// 다운로드 URL: /download/{원본}  (orig가 없으면 PDF로 폴백)
+const downloadUrl = computed(() => {
+  if (!origKey.value) return "";
+  return getDownloadUrl(origKey.value, displayName.value);
+});
 
 function goBack() {
   if (history.length > 1) history.back();
   else navigateTo("/");
 }
-
-onMounted(load);
 </script>
