@@ -2,7 +2,7 @@
   <div :class="['flex w-full', isUser ? 'justify-end' : 'justify-start']">
     <div
       :class="[
-        'max-w-[80%] rounded-2xl p-4 shadow',
+        'max-w-[82%] rounded-2xl p-4 shadow',
         isUser
           ? 'bg-indigo-500 text-white rounded-br-sm'
           : 'bg-zinc-900 text-zinc-100 rounded-bl-sm border border-zinc-800',

@@ -97,6 +97,7 @@
           v-else
           ref="chatScroller"
           class="flex-1 min-h-0 overflow-y-auto space-y-4 p-4 scrollbar-zinc"
+          style="scrollbar-gutter: stable"
         >
           <RagMessageBubble v-for="m in messages" :key="m.id" :msg="m" />
           <div ref="endRef" />
