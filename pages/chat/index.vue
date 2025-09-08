@@ -29,7 +29,7 @@
             <!-- 토글 목록 -->
             <div
               v-if="docsOpen"
-              class="absolute right-0 mt-2 w-[22rem] max-h-[11.5rem] overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/95 shadow-lg p-2 scrollbar-zinc"
+              class="absolute right-0 mt-2 w-[22rem] max-h-[11.2rem] overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/95 shadow-lg p-2 scrollbar-zinc"
             >
               <div
                 v-if="!docs.length"

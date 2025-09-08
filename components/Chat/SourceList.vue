@@ -15,7 +15,7 @@
       </div>
 
       <div class="mt-1 text-sm text-zinc-300 whitespace-pre-line">
-        {{ (s.snippet && s.snippet.trim()) || s.metadata?.text?.slice(0, 300) }}
+        {{ (s.snippet && s.snippet.trim()) || s.metadata?.text?.slice(0, 500) }}
       </div>
 
       <div class="mt-2 text-xs text-zinc-400 flex flex-wrap gap-2">

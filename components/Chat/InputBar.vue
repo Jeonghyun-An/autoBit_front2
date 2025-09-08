@@ -4,8 +4,9 @@
       <div class="flex items-end gap-2">
         <textarea
           ref="taRef"
-          class="flex-1 resize-none overflow-y-auto rounded-xl bg-zinc-900 text-zinc-100 placeholder-zinc-500 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 scrollbar-zinc"
+          class="flex-1 resize-none overflow-y-auto rounded-xl bg-zinc-900 text-zinc-100 placeholder-zinc-500 p-3 pr-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 scrollbar-zinc"
           rows="1"
+          style="scrollbar-gutter: stable"
           :placeholder="
             disabled
               ? '임베딩이 완료되면 질문할 수 있어요…'
