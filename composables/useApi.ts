@@ -23,12 +23,14 @@ export type DocItem = {
   doc_id: string;
   title?: string;
   // backward-compat
-  object_key?: string; // = pdf_key
+  object_key?: string; // = pdf_key (구버전 컴포넌트 호환용)
   url?: string;
   uploaded_at?: string;
-  // new
+  // new (서버 /docs 매핑 기준)
   pdf_key: string; // uploaded/xxx.pdf
-  orig_key?: string; // uploaded/originals/xxx.docx (있을 경우)
+  orig_key?: string; // uploaded/originals/xxx.ext (있을 경우)
+  original_name?: string; // 원본 파일명(예: .docx)
+  is_pdf_original?: boolean; // 원본 자체가 pdf인지
 };
 
 export function useApi() {
@@ -36,15 +38,9 @@ export function useApi() {
   const API = (config.public.apiBase || "/llama").replace(/\/+$/, "");
 
   // --- helpers ---
+  // PATH 파라미터(슬래시 보존)용 인코딩
   const encodeObjectPath = (key: string) =>
     key.split("/").map(encodeURIComponent).join("/");
-
-  const encodeQS = (v: string) => encodeURIComponent(v);
-
-  // 다양한 확장자 제거용 (pdf, office, hwp/hwpx 등)
-  const EXT_RE = /\.(pdf|docx?|pptx?|xlsx?|hwp|hwpx|txt)$/i;
-  const basenameNoExt = (key: string) =>
-    (key.split("/").pop() || "").replace(EXT_RE, "");
 
   function normalizeSources(raw: any[]): SourceMeta[] {
     return (raw || []).map((s: any, i: number) => {
@@ -71,25 +67,29 @@ export function useApi() {
     });
   }
 
-  // 내부 프록시 스트리밍 URL (권장)
+  // 내부 프록시 스트리밍 URL (PDF 보기)
   function getViewUrl(
     objectKey: string,
     name?: string,
     page?: number,
     origKey?: string
   ) {
-    const pathKey = encodeObjectPath(objectKey);
+    const pathKey = encodeObjectPath(objectKey); // path param은 segment-encode
     const qs = new URLSearchParams();
     if (name) qs.set("name", name);
-    if (origKey) qs.set("orig", encodeObjectPath(origKey));
+    if (origKey) qs.set("orig", origKey); // 쿼리값은 URLSearchParams가 안전하게 인코딩
     const hash = page != null ? `#page=${page}` : "";
     const q = qs.toString();
     return `${API}/view/${pathKey}${q ? `?${q}` : ""}${hash}`;
   }
+
+  // 내부 프록시 다운로드 URL (원본/임의 파일 다운로드)
   function getDownloadUrl(objectKey: string, name?: string) {
     const pathKey = encodeObjectPath(objectKey);
-    const q = name ? `?name=${encodeQS(name)}` : "";
-    return `${API}/download/${pathKey}${q}`;
+    const qs = new URLSearchParams();
+    if (name) qs.set("name", name);
+    const q = qs.toString();
+    return `${API}/download/${pathKey}${q ? `?${q}` : ""}`;
   }
 
   // --- low-level API ---
@@ -112,7 +112,7 @@ export function useApi() {
     }>;
   }
 
-  // 업로드 후 즉시 pdf_key / orig_key까지 함께 반환해주는 편의 함수
+  // 업로드 후 편의: 원본키 추정까지 반환(서버 /docs 없이도 동작)
   async function uploadAndResolve(
     file: File,
     mode: "skip" | "version" | "replace" = "version"
@@ -125,23 +125,22 @@ export function useApi() {
     const resp = await uploadDocument(file, mode);
     const pdf_key = resp.minio_object;
 
-    // 원본이 저장되어 있다면 uploaded/originals/<원본파일명> 일 것
-    // 작은 규모 가정 → originals 전체를 받아서 매칭
+    // 가벼운 추정: originals 목록에서 파일명/베이스명으로 매칭
     let orig_key: string | undefined;
     try {
       const originals = await listFiles("uploaded/originals/");
       const expect = `uploaded/originals/${file.name}`;
-      // 정확 일치 우선
       if (originals.includes(expect)) {
         orig_key = expect;
       } else {
-        // 베이스명으로 유사 매칭 (확장자 차이 등)
-        const base = basenameNoExt(file.name);
-        const cand = originals.find((k) => basenameNoExt(k) === base);
+        const base = (file.name.split("/").pop() || "").replace(/\.[^.]+$/, "");
+        const cand = originals.find(
+          (k) => (k.split("/").pop() || "").replace(/\.[^.]+$/, "") === base
+        );
         if (cand) orig_key = cand;
       }
     } catch {
-      // originals 리스트가 실패해도 앱 동작에는 영향 없음
+      /* noop */
     }
     return { job_id: resp.job_id, pdf_key, orig_key, filename: resp.filename };
   }
@@ -161,43 +160,71 @@ export function useApi() {
     return data.files || [];
   }
 
-  // high-level docs (PDF + ORIGINALS 매핑)
+  // 문서 목록: 서버 /docs 우선, 실패 시 /files 폴백
   async function listDocs(): Promise<DocItem[]> {
-    const pdfs = (await listFiles("uploaded/")).filter((k) =>
-      k.toLowerCase().endsWith(".pdf")
-    );
-    let originals: string[] = [];
+    // 1) /docs 시도 (추천)
     try {
-      originals = await listFiles("uploaded/originals/");
+      const r = await fetch(`${API}/docs`);
+      if (r.ok) {
+        const j = (await r.json()) as {
+          docs: Array<{
+            doc_id: string;
+            title?: string;
+            object_key: string; // pdf
+            original_key?: string; // original
+            original_name?: string;
+            is_pdf_original?: boolean;
+            uploaded_at?: string;
+          }>;
+        };
+        return (j.docs || []).map((d) => ({
+          doc_id: d.doc_id,
+          title: d.title,
+          object_key: d.object_key, // compat
+          url: undefined,
+          uploaded_at: d.uploaded_at,
+          pdf_key: d.object_key,
+          orig_key: d.original_key,
+          original_name: d.original_name,
+          is_pdf_original: d.is_pdf_original,
+        }));
+      }
     } catch {
-      originals = [];
+      /* 폴백 진행 */
     }
 
-    // base → orig_key
-    const origMap = new Map<string, string>();
-    for (const k of originals) {
-      const base = basenameNoExt(k);
-      if (base) origMap.set(base, k);
-    }
+    // 2) 폴백: /files로 PDF만 추출 (원본 정보 없음)
+    const r = await fetch(
+      `${API}/files?prefix=${encodeURIComponent("uploaded/")}`
+    );
+    if (!r.ok) throw new Error(await r.text());
+    const data = (await r.json()) as { files: string[] };
+    const files = (data.files || [])
+      .filter(
+        (k) =>
+          !k.endsWith(".flag") &&
+          !k.includes("/__hash__/") &&
+          !k.includes("/__meta__/") &&
+          !k.startsWith("uploaded/originals/")
+      )
+      .filter((k) => k.toLowerCase().endsWith(".pdf"));
 
     // uuid_ 접두 제거(보기명 예쁘게)
     const pretty = (fn: string) =>
       /^[0-9a-fA-F]{32}_/.test(fn) ? fn.slice(33) : fn;
 
-    return pdfs.map((k) => {
-      const baseWithExt = k.split("/").pop() || k;
-      const base = baseWithExt.replace(/\.pdf$/i, "");
-      const ok = origMap.get(base);
-      const title = pretty(baseWithExt);
+    return files.map((k) => {
+      const base = k.split("/").pop() || k; // foo.pdf
+      const doc_id = base.replace(/\.pdf$/i, ""); // foo
       return {
-        doc_id: base,
-        title,
-        object_key: k, // backward-compat
+        doc_id,
+        title: pretty(base),
+        object_key: k, // compat
         url: undefined,
         uploaded_at: undefined,
         pdf_key: k,
-        orig_key: ok,
-      };
+        orig_key: undefined,
+      } as DocItem;
     });
   }
 
@@ -239,6 +266,7 @@ export function useApi() {
     string,
     { pdf_key: string; orig_key?: string; title?: string }
   > | null = null;
+
   async function ensureDocIndex() {
     if (_docIndex) return _docIndex;
     const docs = await listDocs();
@@ -250,6 +278,7 @@ export function useApi() {
     );
     return _docIndex;
   }
+
   async function resolveObjectKeyByDocId(docId?: string) {
     if (!docId) return null;
     const idx = await ensureDocIndex();
@@ -279,19 +308,19 @@ export function useApi() {
         : []
     );
 
-    // 🔗 근거 URL 채우기: /viewer?object=...&orig=...&name=...&page=...
-    const index = await ensureDocIndex();
+    // 근거 URL → /viewer?object=...&orig=...&name=...&page=...
+    const idx = await ensureDocIndex();
     sources = sources.map((s) => {
-      if (!s.url && s.doc_id && index.has(s.doc_id)) {
-        const info = index.get(s.doc_id)!;
+      if (!s.url && s.doc_id && idx.has(s.doc_id)) {
+        const info = idx.get(s.doc_id)!;
         const pdfKey = info.pdf_key;
         const origKey = info.orig_key;
         const name = s.title || info.title || `${s.doc_id}.pdf`;
 
-        const viewerRoute =
-          `/viewer?object=${encodeObjectPath(pdfKey)}&name=${encodeQS(name)}` +
-          (origKey ? `&orig=${encodeObjectPath(origKey)}` : "") +
-          (s.page != null ? `&page=${s.page}` : "");
+        const qs = new URLSearchParams({ object: pdfKey, name });
+        if (origKey) qs.set("orig", origKey);
+        if (s.page != null) qs.set("page", String(s.page));
+        const viewerRoute = `/viewer?${qs.toString()}`;
 
         return { ...s, url: viewerRoute };
       }
@@ -315,10 +344,10 @@ export function useApi() {
     listDocs,
     getStatus,
 
-    // links
-    getFileUrl, // presign (optional)
-    getViewUrl, // proxy view
-    getDownloadUrl, // proxy download
+    // links (프록시)
+    getFileUrl, // presign (옵션)
+    getViewUrl, // view proxy
+    getDownloadUrl, // download proxy
 
     // mapping helpers
     resolveObjectKeyByDocId,

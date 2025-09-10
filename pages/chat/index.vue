@@ -40,7 +40,7 @@
               <ul v-else class="text-sm divide-y divide-zinc-800">
                 <li
                   v-for="d in docs"
-                  :key="d.object_key || d.doc_id"
+                  :key="d.doc_id"
                   class="py-2 px-2 flex items-center justify-between gap-2"
                 >
                   <div class="truncate">
@@ -51,10 +51,12 @@
                       {{ d.uploaded_at }}
                     </div>
                   </div>
+
+                  <!-- 원본 열기: 원본이 pdf면 뷰어, 비-pdf면 다운로드, 없으면 변환 pdf 뷰어 -->
                   <button
                     type="button"
                     class="shrink-0 text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
-                    @click="openPdf(d)"
+                    @click="openDoc(d)"
                   >
                     원본 열기
                   </button>
@@ -111,7 +113,7 @@
         </div>
       </div>
 
-      <!-- Input: enabled if hasData or indexing finished -->
+      <!-- Input -->
       <div class="shrink-0">
         <RagInputBar
           :disabled="!canChat"
@@ -140,12 +142,13 @@ import RagMessageBubble from "@/components/Chat/MessageBubble.vue";
 import RagInputBar from "@/components/Chat/InputBar.vue";
 
 const {
-  uploadDocument,
+  uploadDocument, // 또는 uploadAndResolve 사용 가능
   getJobProgress,
   sendChat,
-  getStatus,
   listDocs,
-  getFileUrl,
+  getStatus,
+  getViewUrl,
+  getDownloadUrl,
 } = useApi();
 
 const messages = ref<ChatMessage[]>([]);
@@ -166,13 +169,9 @@ async function refreshStatusAndDocs() {
   } catch {
     hasData.value = false;
   }
-  if (hasData.value) {
-    try {
-      docs.value = await listDocs();
-    } catch {
-      docs.value = [];
-    }
-  } else {
+  try {
+    docs.value = await listDocs();
+  } catch {
     docs.value = [];
   }
 }
@@ -186,26 +185,10 @@ onBeforeUnmount(() => {
   window.removeEventListener("click", onGlobalClick);
 });
 
-// 헤더 토글 외부 클릭 시 닫기
+// 외부 클릭 시 토글 닫기
 function onGlobalClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
   if (!target.closest(".docs-toggle-area")) docsOpen.value = false;
-}
-const encodeObjectPath = (k: string) =>
-  k.split("/").map(encodeURIComponent).join("/");
-// PDF 보기(프리사인 URL을 새 탭으로)
-async function openPdf(d: DocItem) {
-  try {
-    const runtime = useRuntimeConfig();
-    const API = (runtime.public.apiBase || "/llama").replace(/\/+$/, "");
-    const name = d.title || d.doc_id || "document.pdf";
-    const pathKey = encodeObjectPath(String(d.object_key));
-    const url = `${API}/view/${pathKey}?name=${encodeURIComponent(name)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
-  } catch (e) {
-    alert("파일 URL 생성 실패");
-    console.warn(e);
-  }
 }
 
 const endRef = ref<HTMLElement | null>(null);
@@ -221,6 +204,7 @@ function scrollToEnd(behavior: ScrollBehavior = "smooth") {
 
 watch(messages, () => scrollToEnd("smooth"));
 
+// 업로드 → 진행률 폴링 → 완료 시 목록 갱신
 watch(jobId, (val) => {
   if (!val) return;
   const timer = setInterval(async () => {
@@ -230,18 +214,38 @@ watch(jobId, (val) => {
       blocking.value = (s.progress ?? 0) < 100;
       if (progress.value >= 100) {
         clearInterval(timer);
-        hasData.value = true;
-        try {
-          docs.value = await listDocs();
-        } catch {
-          docs.value = [];
-        }
+        await refreshStatusAndDocs();
       }
     } catch (e) {
       console.warn("progress error", e);
     }
   }, 1500);
 });
+
+// 원본 열기 동작
+function openDoc(d: DocItem) {
+  // 원본 키 존재 + 원본이 pdf면 → 원본 PDF 뷰어
+  if (d.orig_key && d.orig_key.toLowerCase().endsWith(".pdf")) {
+    const url = getViewUrl(
+      d.orig_key,
+      d.original_name || d.title || `${d.doc_id}.pdf`
+    );
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  // 원본 키 존재 + 비-PDF면 → 원본 다운로드
+  if (d.orig_key && !d.orig_key.toLowerCase().endsWith(".pdf")) {
+    const url = getDownloadUrl(
+      d.orig_key,
+      d.original_name || d.title || d.doc_id
+    );
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  // 원본이 없으면 → 변환 PDF 뷰어
+  const url = getViewUrl(d.pdf_key, d.title || `${d.doc_id}.pdf`);
+  window.open(url, "_blank", "noopener,noreferrer");
+}
 
 const onUpload = async (file: File) => {
   uploading.value = true;
@@ -262,7 +266,10 @@ const canChat = computed(
 
 const onSend = async (query: string) => {
   const userMsg: ChatMessage = {
-    id: crypto.randomUUID(),
+    id:
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Math.random().toString(36).substring(2, 15),
     role: "user",
     content: query,
     created_at: new Date().toISOString(),
@@ -276,7 +283,10 @@ const onSend = async (query: string) => {
     }));
     const { answer, sources } = await sendChat(history, query);
     const botMsg: ChatMessage = {
-      id: crypto.randomUUID(),
+      id:
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Math.random().toString(36).substring(2, 15),
       role: "assistant",
       content: answer,
       created_at: new Date().toISOString(),
@@ -285,7 +295,10 @@ const onSend = async (query: string) => {
     messages.value = [...messages.value, botMsg];
   } catch (e: any) {
     const botMsg: ChatMessage = {
-      id: crypto.randomUUID(),
+      id:
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Math.random().toString(36).substring(2, 15),
       role: "assistant",
       content: `오류가 발생했습니다. 관리자에게 문의해주세요.\n\n${
         e?.message || e
@@ -297,7 +310,6 @@ const onSend = async (query: string) => {
 };
 
 function onInputResize(_h: number) {
-  // 입력창 높이가 변하면 하단 고정 유지
   scrollToEnd("auto");
 }
 </script>
