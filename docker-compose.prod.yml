@@ -1,0 +1,27 @@
+services:
+  nuxt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nuxt
+    environment:
+      NUXT_PUBLIC_API_BASE: "/llama" # 프록시로 같은 오리진 호출
+      NITRO_HOST: "0.0.0.0"
+      NITRO_PORT: "3000"
+      PORT: "3000"
+    networks: [ragnet]
+
+  gateway:
+    image: nginx:alpine
+    container_name: gateway
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - nuxt
+    networks: [ragnet]
+
+networks:
+  ragnet:
+    external: true # 이미 만들어 둔 네트워크 사용
