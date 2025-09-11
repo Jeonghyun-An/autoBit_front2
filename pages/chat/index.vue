@@ -60,6 +60,16 @@
                   >
                     원본 열기
                   </button>
+                  <!-- 원본 다운로드: orig_key 있을 때만 노출 -->
+                  <button
+                    v-if="d.orig_key"
+                    type="button"
+                    class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
+                    @click.stop="downloadOriginal(d)"
+                    :title="'MinIO 원본 다운로드'"
+                  >
+                    원본 다운로드
+                  </button>
                 </li>
               </ul>
             </div>
@@ -140,6 +150,7 @@ import RagUploadCenter from "@/components/Chat/UploadCenter.vue";
 import RagProgressBar from "~/components/Chat/ProgressBar.vue";
 import RagMessageBubble from "@/components/Chat/MessageBubble.vue";
 import RagInputBar from "@/components/Chat/InputBar.vue";
+import { generateId } from "~/utils/uuid";
 
 const {
   uploadDocument, // 또는 uploadAndResolve 사용 가능
@@ -221,29 +232,47 @@ watch(jobId, (val) => {
     }
   }, 1500);
 });
-
+function isPdf(path?: string | null) {
+  return !!path && path.toLowerCase().endsWith(".pdf");
+}
 // 원본 열기 동작
 function openDoc(d: DocItem) {
-  // 원본 키 존재 + 원본이 pdf면 → 원본 PDF 뷰어
-  if (d.orig_key && d.orig_key.toLowerCase().endsWith(".pdf")) {
+  // 1) 원본이 PDF면 → 원본 PDF 뷰어
+  if (isPdf(d.orig_key)) {
     const url = getViewUrl(
-      d.orig_key,
+      d.orig_key!,
       d.original_name || d.title || `${d.doc_id}.pdf`
     );
     window.open(url, "_blank", "noopener,noreferrer");
     return;
   }
-  // 원본 키 존재 + 비-PDF면 → 원본 다운로드
-  if (d.orig_key && !d.orig_key.toLowerCase().endsWith(".pdf")) {
-    const url = getDownloadUrl(
-      d.orig_key,
-      d.original_name || d.title || d.doc_id
-    );
+
+  // 2) 원본이 존재하지만 PDF가 아니면 → 변환 PDF가 있으면 그걸 뷰어로
+  if (d.orig_key && !isPdf(d.orig_key) && d.pdf_key) {
+    const url = getViewUrl(d.pdf_key, d.title || `${d.doc_id}.pdf`);
     window.open(url, "_blank", "noopener,noreferrer");
     return;
   }
-  // 원본이 없으면 → 변환 PDF 뷰어
+
+  // 3) 그 외(원본 없음) → 변환 PDF 뷰어
   const url = getViewUrl(d.pdf_key, d.title || `${d.doc_id}.pdf`);
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+// 원본 다운로드 (항상 MinIO의 orig_key로 다운로드)
+function downloadOriginal(d: DocItem) {
+  if (!d.orig_key) {
+    alert("다운로드할 원본 파일이 없습니다.");
+    return;
+  }
+  const filename =
+    d.original_name ||
+    d.title ||
+    // 확장자 없으면 원본 확장자 추출 or doc_id 사용
+    d.orig_key.split("/").pop() ||
+    d.doc_id;
+
+  const url = getDownloadUrl(d.orig_key, filename);
+  // 새 탭으로 열어도 되고, 동일 탭 다운로드를 원하면 a[download] 사용 가능
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
@@ -266,10 +295,7 @@ const canChat = computed(
 
 const onSend = async (query: string) => {
   const userMsg: ChatMessage = {
-    id:
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : Math.random().toString(36).substring(2, 15),
+    id: generateId(),
     role: "user",
     content: query,
     created_at: new Date().toISOString(),
@@ -283,10 +309,7 @@ const onSend = async (query: string) => {
     }));
     const { answer, sources } = await sendChat(history, query);
     const botMsg: ChatMessage = {
-      id:
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : Math.random().toString(36).substring(2, 15),
+      id: generateId(),
       role: "assistant",
       content: answer,
       created_at: new Date().toISOString(),
@@ -295,10 +318,7 @@ const onSend = async (query: string) => {
     messages.value = [...messages.value, botMsg];
   } catch (e: any) {
     const botMsg: ChatMessage = {
-      id:
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : Math.random().toString(36).substring(2, 15),
+      id: generateId(),
       role: "assistant",
       content: `오류가 발생했습니다. 관리자에게 문의해주세요.\n\n${
         e?.message || e
