@@ -60,11 +60,11 @@
                   >
                     원본 열기
                   </button>
-                  <!-- 원본 다운로드: orig_key 있을 때만 노출 -->
+                  <!-- 원본 다운로드: original_key 있을 때만 노출 -->
                   <button
-                    v-if="d.orig_key"
+                    v-if="d.original_key"
                     type="button"
-                    class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
+                    class="shrink-0 text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
                     @click.stop="downloadOriginal(d)"
                     :title="'MinIO 원본 다운로드'"
                   >
@@ -238,9 +238,9 @@ function isPdf(path?: string | null) {
 // 원본 열기 동작
 function openDoc(d: DocItem) {
   // 1) 원본이 PDF면 → 원본 PDF 뷰어
-  if (isPdf(d.orig_key)) {
+  if (isPdf(d.original_key)) {
     const url = getViewUrl(
-      d.orig_key!,
+      d.original_key!,
       d.original_name || d.title || `${d.doc_id}.pdf`
     );
     window.open(url, "_blank", "noopener,noreferrer");
@@ -248,7 +248,7 @@ function openDoc(d: DocItem) {
   }
 
   // 2) 원본이 존재하지만 PDF가 아니면 → 변환 PDF가 있으면 그걸 뷰어로
-  if (d.orig_key && !isPdf(d.orig_key) && d.pdf_key) {
+  if (d.original_key && !isPdf(d.original_key) && d.pdf_key) {
     const url = getViewUrl(d.pdf_key, d.title || `${d.doc_id}.pdf`);
     window.open(url, "_blank", "noopener,noreferrer");
     return;
@@ -258,21 +258,13 @@ function openDoc(d: DocItem) {
   const url = getViewUrl(d.pdf_key, d.title || `${d.doc_id}.pdf`);
   window.open(url, "_blank", "noopener,noreferrer");
 }
-// 원본 다운로드 (항상 MinIO의 orig_key로 다운로드)
+// 원본 다운로드 (항상 MinIO의 original_key로 다운로드)
 function downloadOriginal(d: DocItem) {
-  if (!d.orig_key) {
-    alert("다운로드할 원본 파일이 없습니다.");
-    return;
-  }
-  const filename =
-    d.original_name ||
-    d.title ||
-    // 확장자 없으면 원본 확장자 추출 or doc_id 사용
-    d.orig_key.split("/").pop() ||
-    d.doc_id;
-
-  const url = getDownloadUrl(d.orig_key, filename);
-  // 새 탭으로 열어도 되고, 동일 탭 다운로드를 원하면 a[download] 사용 가능
+  if (!d.original_key) return;
+  const url = getDownloadUrl(
+    d.original_key,
+    d.original_name || d.title || d.doc_id
+  );
   window.open(url, "_blank", "noopener,noreferrer");
 }
 

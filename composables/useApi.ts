@@ -28,7 +28,7 @@ export type DocItem = {
   uploaded_at?: string;
   // new (서버 /docs 매핑 기준)
   pdf_key: string; // uploaded/xxx.pdf
-  orig_key?: string; // uploaded/originals/xxx.ext (있을 경우)
+  original_key?: string; // uploaded/originals/xxx.ext (있을 경우)
   original_name?: string; // 원본 파일명(예: .docx)
   is_pdf_original?: boolean; // 원본 자체가 pdf인지
 };
@@ -119,30 +119,35 @@ export function useApi() {
   ): Promise<{
     job_id: string;
     pdf_key: string;
-    orig_key?: string;
+    original_key?: string;
     filename: string;
   }> {
     const resp = await uploadDocument(file, mode);
     const pdf_key = resp.minio_object;
 
     // 가벼운 추정: originals 목록에서 파일명/베이스명으로 매칭
-    let orig_key: string | undefined;
+    let original_key: string | undefined;
     try {
       const originals = await listFiles("uploaded/originals/");
       const expect = `uploaded/originals/${file.name}`;
       if (originals.includes(expect)) {
-        orig_key = expect;
+        original_key = expect;
       } else {
         const base = (file.name.split("/").pop() || "").replace(/\.[^.]+$/, "");
         const cand = originals.find(
           (k) => (k.split("/").pop() || "").replace(/\.[^.]+$/, "") === base
         );
-        if (cand) orig_key = cand;
+        if (cand) original_key = cand;
       }
     } catch {
       /* noop */
     }
-    return { job_id: resp.job_id, pdf_key, orig_key, filename: resp.filename };
+    return {
+      job_id: resp.job_id,
+      pdf_key,
+      original_key,
+      filename: resp.filename,
+    };
   }
 
   async function getJobProgress(jobId: string) {
@@ -184,7 +189,7 @@ export function useApi() {
           url: undefined,
           uploaded_at: d.uploaded_at,
           pdf_key: d.object_key,
-          orig_key: d.original_key,
+          original_key: d.original_key,
           original_name: d.original_name,
           is_pdf_original: d.is_pdf_original,
         }));
@@ -223,7 +228,7 @@ export function useApi() {
         url: undefined,
         uploaded_at: undefined,
         pdf_key: k,
-        orig_key: undefined,
+        original_key: undefined,
       } as DocItem;
     });
   }
@@ -261,10 +266,10 @@ export function useApi() {
     return (await res.json()) as { url: string };
   }
 
-  // ---- doc_id → {pdf_key, orig_key} 매핑 캐시 ----
+  // ---- doc_id → {pdf_key, original_key} 매핑 캐시 ----
   let _docIndex: Map<
     string,
-    { pdf_key: string; orig_key?: string; title?: string }
+    { pdf_key: string; original_key?: string; title?: string }
   > | null = null;
 
   async function ensureDocIndex() {
@@ -273,7 +278,7 @@ export function useApi() {
     _docIndex = new Map(
       docs.map((d) => [
         d.doc_id,
-        { pdf_key: d.pdf_key, orig_key: d.orig_key, title: d.title },
+        { pdf_key: d.pdf_key, original_key: d.original_key, title: d.title },
       ])
     );
     return _docIndex;
@@ -314,7 +319,7 @@ export function useApi() {
       if (!s.url && s.doc_id && idx.has(s.doc_id)) {
         const info = idx.get(s.doc_id)!;
         const pdfKey = info.pdf_key;
-        const origKey = info.orig_key;
+        const origKey = info.original_key;
         const name = s.title || info.title || `${s.doc_id}.pdf`;
 
         const qs = new URLSearchParams({ object: pdfKey, name });
