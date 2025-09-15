@@ -134,6 +134,18 @@
           style="scrollbar-gutter: stable"
         >
           <RagMessageBubble v-for="m in messages" :key="m.id" :msg="m" />
+          <!-- 답변 생성 중 로딩 버블 -->
+          <div v-if="answering" class="flex">
+            <!-- 어시스턴트 버블처럼 좌측 정렬 -->
+            <div
+              class="max-w-[80%] rounded-2xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 inline-flex items-center gap-2"
+            >
+              <Icon
+                name="eos-icons:bubble-loading"
+                class="w-6 h-6 animate-pulse"
+              />
+            </div>
+          </div>
           <div ref="endRef" />
         </div>
 
@@ -148,7 +160,7 @@
       <!-- Input -->
       <div class="shrink-0">
         <RagInputBar
-          :disabled="!canChat"
+          :disabled="!canChat || answering"
           @send="onSend"
           @height-changed="onInputResize"
         />
@@ -295,6 +307,9 @@ const canChat = computed(
   () => hasData.value || (!blocking.value && progress.value >= 100)
 );
 
+const answering = ref(false);
+watch(answering, () => scrollToEnd("smooth"));
+
 const onSend = async (query: string) => {
   const userMsg: ChatMessage = {
     id: generateId(),
@@ -303,7 +318,7 @@ const onSend = async (query: string) => {
     created_at: new Date().toISOString(),
   };
   messages.value = [...messages.value, userMsg];
-
+  answering.value = true;
   try {
     const history = messages.value.map((m) => ({
       role: m.role,
@@ -328,6 +343,8 @@ const onSend = async (query: string) => {
       created_at: new Date().toISOString(),
     };
     messages.value = [...messages.value, botMsg];
+  } finally {
+    answering.value = false;
   }
 };
 
