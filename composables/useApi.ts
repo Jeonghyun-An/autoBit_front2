@@ -68,28 +68,146 @@ export function useApi() {
   }
 
   // 내부 프록시 스트리밍 URL (PDF 보기)
+
   function getViewUrl(
     objectKey: string,
     name?: string,
     page?: number,
     origKey?: string
   ) {
-    const pathKey = encodeObjectPath(objectKey); // path param은 segment-encode
+    const pathKey = encodeObjectPath(objectKey);
     const qs = new URLSearchParams();
     if (name) qs.set("name", name);
-    if (origKey) qs.set("orig", origKey); // 쿼리값은 URLSearchParams가 안전하게 인코딩
+    if (origKey) qs.set("orig", origKey); // ← 원본 키를 뷰어에 넘겨줌
     const hash = page != null ? `#page=${page}` : "";
     const q = qs.toString();
     return `${API}/view/${pathKey}${q ? `?${q}` : ""}${hash}`;
   }
 
-  // 내부 프록시 다운로드 URL (원본/임의 파일 다운로드)
+  // 내부 프록시 다운로드 URL (원본 다운로드)
   function getDownloadUrl(objectKey: string, name?: string) {
     const pathKey = encodeObjectPath(objectKey);
     const qs = new URLSearchParams();
     if (name) qs.set("name", name);
     const q = qs.toString();
     return `${API}/download/${pathKey}${q ? `?${q}` : ""}`;
+  }
+
+  // 문서 목록: /docs 먼저, 실패 시 /rag/docs 폴백
+  async function listDocs(): Promise<DocItem[]> {
+    const tryFetch = async (path: string) => {
+      const r = await fetch(`${API}${path}`);
+      if (!r.ok) throw new Error(await r.text());
+      const j = (await r.json()) as {
+        docs: Array<{
+          doc_id: string;
+          title?: string;
+          object_key: string;
+          original_key?: string;
+          original_name?: string;
+          is_pdf_original?: boolean;
+          uploaded_at?: string;
+        }>;
+      };
+      return (j.docs || []).map((d) => ({
+        doc_id: d.doc_id,
+        title: d.title,
+        object_key: d.object_key,
+        url: undefined,
+        uploaded_at: d.uploaded_at,
+        pdf_key: d.object_key,
+        original_key: d.original_key,
+        original_name: d.original_name,
+        is_pdf_original: d.is_pdf_original,
+      })) as DocItem[];
+    };
+
+    try {
+      return await tryFetch(`/rag/docs`);
+    } catch {
+      try {
+        return await tryFetch(`/docs`);
+      } catch {
+        /* 폴백 계속 진행 */
+      }
+    }
+
+    // ... (기존 /files 폴백 부분 그대로 유지) ...
+    const r = await fetch(
+      `${API}/files?prefix=${encodeURIComponent("uploaded/")}`
+    );
+    if (!r.ok) throw new Error(await r.text());
+    const data = (await r.json()) as { files: string[] };
+    const files = (data.files || [])
+      .filter(
+        (k) =>
+          !k.endsWith(".flag") &&
+          !k.includes("/__hash__/") &&
+          !k.includes("/__meta__/") &&
+          !k.startsWith("uploaded/originals/")
+      )
+      .filter((k) => k.toLowerCase().endsWith(".pdf"));
+
+    const pretty = (fn: string) =>
+      /^[0-9a-fA-F]{32}_/.test(fn) ? fn.slice(33) : fn;
+
+    return files.map((k) => {
+      const base = k.split("/").pop() || k;
+      const doc_id = base.replace(/\.pdf$/i, "");
+      return {
+        doc_id,
+        title: pretty(base),
+        object_key: k,
+        url: undefined,
+        uploaded_at: undefined,
+        pdf_key: k,
+        original_key: undefined,
+      } as DocItem;
+    });
+  }
+
+  let _docIndex: Map<
+    string,
+    {
+      pdf_key: string;
+      original_key?: string;
+      original_name?: string;
+      title?: string;
+    }
+  > | null = null;
+
+  async function ensureDocIndex() {
+    if (_docIndex) return _docIndex;
+    const docs = await listDocs();
+    _docIndex = new Map(
+      docs.map((d) => [
+        d.doc_id,
+        {
+          pdf_key: d.pdf_key,
+          original_key: d.original_key,
+          original_name: d.original_name,
+          title: d.title,
+        },
+      ])
+    );
+    return _docIndex;
+  }
+
+  async function resolveObjectKeyByDocId(docId?: string) {
+    if (!docId) return null;
+    const idx = await ensureDocIndex();
+    return idx.get(docId)?.pdf_key || null;
+  }
+
+  async function resolveOriginalByDocId(docId?: string) {
+    if (!docId) return null;
+    const idx = await ensureDocIndex();
+    const it = idx.get(docId);
+    if (!it?.original_key) return null;
+    return {
+      key: it.original_key,
+      name: it.original_name || it.title || `${docId}`,
+    };
   }
 
   // --- low-level API ---
@@ -165,74 +283,6 @@ export function useApi() {
     return data.files || [];
   }
 
-  // 문서 목록: 서버 /docs 우선, 실패 시 /files 폴백
-  async function listDocs(): Promise<DocItem[]> {
-    // 1) /docs 시도 (추천)
-    try {
-      const r = await fetch(`${API}/docs`);
-      if (r.ok) {
-        const j = (await r.json()) as {
-          docs: Array<{
-            doc_id: string;
-            title?: string;
-            object_key: string; // pdf
-            original_key?: string; // original
-            original_name?: string;
-            is_pdf_original?: boolean;
-            uploaded_at?: string;
-          }>;
-        };
-        return (j.docs || []).map((d) => ({
-          doc_id: d.doc_id,
-          title: d.title,
-          object_key: d.object_key, // compat
-          url: undefined,
-          uploaded_at: d.uploaded_at,
-          pdf_key: d.object_key,
-          original_key: d.original_key,
-          original_name: d.original_name,
-          is_pdf_original: d.is_pdf_original,
-        }));
-      }
-    } catch {
-      /* 폴백 진행 */
-    }
-
-    // 2) 폴백: /files로 PDF만 추출 (원본 정보 없음)
-    const r = await fetch(
-      `${API}/files?prefix=${encodeURIComponent("uploaded/")}`
-    );
-    if (!r.ok) throw new Error(await r.text());
-    const data = (await r.json()) as { files: string[] };
-    const files = (data.files || [])
-      .filter(
-        (k) =>
-          !k.endsWith(".flag") &&
-          !k.includes("/__hash__/") &&
-          !k.includes("/__meta__/") &&
-          !k.startsWith("uploaded/originals/")
-      )
-      .filter((k) => k.toLowerCase().endsWith(".pdf"));
-
-    // uuid_ 접두 제거(보기명 예쁘게)
-    const pretty = (fn: string) =>
-      /^[0-9a-fA-F]{32}_/.test(fn) ? fn.slice(33) : fn;
-
-    return files.map((k) => {
-      const base = k.split("/").pop() || k; // foo.pdf
-      const doc_id = base.replace(/\.pdf$/i, ""); // foo
-      return {
-        doc_id,
-        title: pretty(base),
-        object_key: k, // compat
-        url: undefined,
-        uploaded_at: undefined,
-        pdf_key: k,
-        original_key: undefined,
-      } as DocItem;
-    });
-  }
-
   // status
   async function getStatus(): Promise<{
     has_data: boolean;
@@ -250,44 +300,6 @@ export function useApi() {
         return { has_data: false, doc_count: 0 };
       }
     }
-  }
-
-  // presign (옵션)
-  async function getFileUrl(
-    objectKey: string,
-    minutes = 60,
-    downloadName?: string
-  ) {
-    const q = new URLSearchParams({ minutes: String(minutes) });
-    if (downloadName) q.set("download_name", downloadName);
-    const pathKey = encodeObjectPath(objectKey);
-    const res = await fetch(`${API}/file/${pathKey}?${q.toString()}`);
-    if (!res.ok) throw new Error(await res.text());
-    return (await res.json()) as { url: string };
-  }
-
-  // ---- doc_id → {pdf_key, original_key} 매핑 캐시 ----
-  let _docIndex: Map<
-    string,
-    { pdf_key: string; original_key?: string; title?: string }
-  > | null = null;
-
-  async function ensureDocIndex() {
-    if (_docIndex) return _docIndex;
-    const docs = await listDocs();
-    _docIndex = new Map(
-      docs.map((d) => [
-        d.doc_id,
-        { pdf_key: d.pdf_key, original_key: d.original_key, title: d.title },
-      ])
-    );
-    return _docIndex;
-  }
-
-  async function resolveObjectKeyByDocId(docId?: string) {
-    if (!docId) return null;
-    const idx = await ensureDocIndex();
-    return idx.get(docId)?.pdf_key || null;
   }
 
   // ---- chat ----
@@ -350,11 +362,11 @@ export function useApi() {
     getStatus,
 
     // links (프록시)
-    getFileUrl, // presign (옵션)
     getViewUrl, // view proxy
     getDownloadUrl, // download proxy
 
     // mapping helpers
     resolveObjectKeyByDocId,
+    resolveOriginalByDocId,
   };
 }

@@ -54,7 +54,15 @@
           class="underline underline-offset-2 hover:text-zinc-200"
           @click="openSource(s)"
         >
-          원문 열기
+          원문 보기
+        </button>
+        <button
+          v-if="s.doc_id"
+          type="button"
+          class="underline underline-offset-2 hover:text-zinc-200"
+          @click="downloadSourceOriginal(s)"
+        >
+          원본 다운로드
         </button>
       </div>
     </div>
@@ -66,7 +74,12 @@ import type { SourceMeta } from "@/composables/useApi";
 import { useApi } from "@/composables/useApi";
 
 defineProps<{ sources?: SourceMeta[] }>();
-const { resolveObjectKeyByDocId, getViewUrl } = useApi();
+const {
+  resolveObjectKeyByDocId,
+  resolveOriginalByDocId,
+  getViewUrl,
+  getDownloadUrl,
+} = useApi();
 
 async function openSource(s: SourceMeta) {
   try {
@@ -87,6 +100,20 @@ async function openSource(s: SourceMeta) {
   } catch (e) {
     console.warn(e);
     alert("원문을 여는 중 오류가 발생했습니다.");
+  }
+}
+async function downloadSourceOriginal(s: SourceMeta) {
+  try {
+    const orig = await resolveOriginalByDocId(s.doc_id || "");
+    if (!orig) {
+      alert("원본 파일 정보를 찾지 못했습니다.");
+      return;
+    }
+    const url = getDownloadUrl(orig.key, orig.name);
+    window.open(url, "_blank", "noopener,noreferrer");
+  } catch (e) {
+    console.warn(e);
+    alert("원본 다운로드 중 오류가 발생했습니다.");
   }
 }
 </script>
