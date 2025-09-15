@@ -347,6 +347,39 @@ export function useApi() {
     return { answer, sources } as { answer: string; sources?: SourceMeta[] };
   }
 
+  // doc 메타 조회 (pdf_key / original_key / original_name / title)
+  async function getDocInfo(docId: string) {
+    const idx = await ensureDocIndex();
+    const it = idx.get(docId);
+    if (!it) return null;
+    return {
+      pdf_key: it.pdf_key,
+      original_key: it.original_key,
+      original_name: it.original_name,
+      title: it.title,
+    };
+  }
+
+  // 문서별 청크 조회 (debug 엔드포인트 래핑)
+  async function getDocChunks(
+    docId: string,
+    limit = 500,
+    full = true, // true면 서버에서 자르지 않음
+    maxChars?: number // false일 때 잘라낼 최대 길이
+  ) {
+    const qs = new URLSearchParams({
+      doc_id: docId,
+      limit: String(limit),
+      full: full ? "true" : "false",
+    });
+    if (!full && maxChars != null) qs.set("max_chars", String(maxChars));
+
+    const r = await fetch(`${API}/debug/milvus/by-doc?${qs.toString()}`);
+    if (!r.ok) throw new Error(await r.text());
+    const { items } = (await r.json()) as { items: any[] };
+    return items || [];
+  }
+
   return {
     // uploads
     uploadDocument,
@@ -368,5 +401,9 @@ export function useApi() {
     // mapping helpers
     resolveObjectKeyByDocId,
     resolveOriginalByDocId,
+
+    //chunking debug
+    getDocChunks,
+    getDocInfo,
   };
 }
