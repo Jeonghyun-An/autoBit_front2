@@ -43,7 +43,7 @@
                   :key="d.doc_id"
                   class="py-2 px-2 flex items-center justify-between gap-2 min-w-0"
                 >
-                  <div class="truncate min-w-0">
+                  <div class="truncate min-w-0 gap-1">
                     <div class="font-medium truncate">
                       {{ d.title || d.doc_id }}
                     </div>
@@ -53,18 +53,17 @@
                   </div>
 
                   <div class="flex items-center gap-2 shrink-0">
-                    <!-- 원본 다운로드: 원본이 있을 때만 노출 -->
+                    <!-- 기존 문서 목록 li 내부 버튼 영역 옆에 추가 -->
                     <button
-                      v-if="d.original_key && !d.is_pdf_original"
                       type="button"
                       class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
-                      @click="downloadOriginal(d)"
-                      title="MinIO의 실제 원본 파일을 다운로드"
+                      @click="goChunks(d)"
+                      title="이 문서의 모든 청크 보기"
                     >
                       <Icon
-                        name="material-symbols:download-rounded"
+                        name="material-symbols:pageview"
                         class="w-4 h-4"
-                      />
+                      ></Icon>
                     </button>
 
                     <!-- 원문 열기: 항상 변환된 PDF 뷰어로 연다 -->
@@ -76,6 +75,19 @@
                     >
                       <Icon
                         name="material-symbols:picture-as-pdf-rounded"
+                        class="w-4 h-4"
+                      />
+                    </button>
+                    <!-- 원본 다운로드: 원본이 있을 때만 노출 -->
+                    <button
+                      v-if="d.original_key && !d.is_pdf_original"
+                      type="button"
+                      class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
+                      @click="downloadOriginal(d)"
+                      title="MinIO의 실제 원본 파일을 다운로드"
+                    >
+                      <Icon
+                        name="material-symbols:download-rounded"
                         class="w-4 h-4"
                       />
                     </button>
@@ -183,6 +195,13 @@ const hasData = ref(false);
 const docsOpen = ref(false);
 const docs = ref<DocItem[]>([]);
 
+const router = useRouter();
+
+function goChunks(d: DocItem) {
+  docsOpen.value = false; // 토글 닫기
+  router.push(`/chunks/${encodeURIComponent(d.doc_id)}`);
+}
+
 async function refreshStatusAndDocs() {
   try {
     const s = await getStatus();
@@ -244,7 +263,7 @@ watch(jobId, (val) => {
 });
 
 function openDoc(d: DocItem) {
-  const key = d.object_key || d.pdf_key;
+  const key = d.pdf_key || d.object_key || "";
   if (!key) return;
   const url = getViewUrl(key, d.title || `${d.doc_id}.pdf`);
   window.open(url, "_blank", "noopener,noreferrer");
