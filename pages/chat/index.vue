@@ -29,7 +29,7 @@
             <!-- 토글 목록 -->
             <div
               v-if="docsOpen"
-              class="absolute right-0 mt-2 w-[22rem] max-h-[11.2rem] overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/95 shadow-lg p-2 scrollbar-zinc"
+              class="absolute right-0 mt-2 w-[26rem] max-h-[11.2rem] overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/95 shadow-lg p-2 scrollbar-zinc"
             >
               <div
                 v-if="!docs.length"
@@ -41,9 +41,9 @@
                 <li
                   v-for="d in docs"
                   :key="d.doc_id"
-                  class="py-2 px-2 flex items-center justify-between gap-2"
+                  class="py-2 px-2 flex items-center justify-between gap-2 min-w-0"
                 >
-                  <div class="truncate">
+                  <div class="truncate min-w-0">
                     <div class="font-medium truncate">
                       {{ d.title || d.doc_id }}
                     </div>
@@ -52,24 +52,34 @@
                     </div>
                   </div>
 
-                  <!-- 원본 열기: 원본이 pdf면 뷰어, 비-pdf면 다운로드, 없으면 변환 pdf 뷰어 -->
-                  <button
-                    type="button"
-                    class="shrink-0 text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
-                    @click="openDoc(d)"
-                  >
-                    원본 열기
-                  </button>
-                  <!-- 원본 다운로드: original_key 있을 때만 노출 -->
-                  <button
-                    v-if="d.original_key"
-                    type="button"
-                    class="shrink-0 text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
-                    @click.stop="downloadOriginal(d)"
-                    :title="'MinIO 원본 다운로드'"
-                  >
-                    원본 다운로드
-                  </button>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <!-- 원본 다운로드: 원본이 있을 때만 노출 -->
+                    <button
+                      v-if="d.original_key && !d.is_pdf_original"
+                      type="button"
+                      class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
+                      @click="downloadOriginal(d)"
+                      title="MinIO의 실제 원본 파일을 다운로드"
+                    >
+                      <Icon
+                        name="material-symbols:download-rounded"
+                        class="w-4 h-4"
+                      />
+                    </button>
+
+                    <!-- 원문 열기: 항상 변환된 PDF 뷰어로 연다 -->
+                    <button
+                      type="button"
+                      class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
+                      @click="openDoc(d)"
+                      title="변환된 PDF 뷰어로 열기"
+                    >
+                      <Icon
+                        name="material-symbols:picture-as-pdf-rounded"
+                        class="w-4 h-4"
+                      />
+                    </button>
+                  </div>
                 </li>
               </ul>
             </div>
@@ -232,33 +242,14 @@ watch(jobId, (val) => {
     }
   }, 1500);
 });
-function isPdf(path?: string | null) {
-  return !!path && path.toLowerCase().endsWith(".pdf");
-}
-// 원본 열기 동작
+
 function openDoc(d: DocItem) {
-  // 1) 원본이 PDF면 → 원본 PDF 뷰어
-  if (isPdf(d.original_key)) {
-    const url = getViewUrl(
-      d.original_key!,
-      d.original_name || d.title || `${d.doc_id}.pdf`
-    );
-    window.open(url, "_blank", "noopener,noreferrer");
-    return;
-  }
-
-  // 2) 원본이 존재하지만 PDF가 아니면 → 변환 PDF가 있으면 그걸 뷰어로
-  if (d.original_key && !isPdf(d.original_key) && d.pdf_key) {
-    const url = getViewUrl(d.pdf_key, d.title || `${d.doc_id}.pdf`);
-    window.open(url, "_blank", "noopener,noreferrer");
-    return;
-  }
-
-  // 3) 그 외(원본 없음) → 변환 PDF 뷰어
-  const url = getViewUrl(d.pdf_key, d.title || `${d.doc_id}.pdf`);
+  const key = d.object_key || d.pdf_key;
+  if (!key) return;
+  const url = getViewUrl(key, d.title || `${d.doc_id}.pdf`);
   window.open(url, "_blank", "noopener,noreferrer");
 }
-// 원본 다운로드 (항상 MinIO의 original_key로 다운로드)
+
 function downloadOriginal(d: DocItem) {
   if (!d.original_key) return;
   const url = getDownloadUrl(
