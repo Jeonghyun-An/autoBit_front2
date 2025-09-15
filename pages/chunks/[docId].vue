@@ -86,7 +86,7 @@
       <!-- Body -->
       <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 scrollbar-zinc">
         <div v-if="loading" class="text-sm text-zinc-400">
-          <Icon name="eos-icons:loading" class="w-4 h-4" />
+          <Icon name="line-md:loading-twotone-loop" class="w-4 h-4" />
         </div>
         <div v-else-if="error" class="text-sm text-red-400">{{ error }}</div>
         <div v-else-if="!visibleChunks.length" class="text-sm text-zinc-400">
