@@ -32,6 +32,7 @@
           class="underline underline-offset-2 hover:text-zinc-200"
           target="_blank"
           rel="noreferrer"
+          title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
         >
           원문 열기
         </NuxtLink>
@@ -43,6 +44,7 @@
           class="underline underline-offset-2 hover:text-zinc-200"
           target="_blank"
           rel="noreferrer"
+          title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
         >
           원문 열기
         </a>
@@ -53,6 +55,7 @@
           type="button"
           class="underline underline-offset-2 hover:text-zinc-200"
           @click="openSource(s)"
+          title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
         >
           원문 보기
         </button>
@@ -61,8 +64,25 @@
           type="button"
           class="underline underline-offset-2 hover:text-zinc-200"
           @click="downloadSourceOriginal(s)"
+          title="해당 문서의 원본 파일을 다운로드 합니다"
         >
           원본 다운로드
+        </button>
+        <button
+          type="button"
+          class="underline underline-offset-2 hover:text-zinc-200"
+          @click="downloadChunk(s)"
+          title="해당 청크를 .txt 파일로 다운로드 합니다"
+        >
+          청크 다운로드
+        </button>
+        <button
+          type="button"
+          class="underline underline-offset-2 hover:text-zinc-200"
+          @click="downloadChunkJSON(s)"
+          title="해당 청크를 JSON 파일로 다운로드 합니다"
+        >
+          청크 JSON
         </button>
       </div>
     </div>
@@ -115,5 +135,83 @@ async function downloadSourceOriginal(s: SourceMeta) {
     console.warn(e);
     alert("원본 다운로드 중 오류가 발생했습니다.");
   }
+}
+function stripMetaLine(t?: string) {
+  if (!t) return "";
+  if (t.startsWith("META:")) {
+    const nl = t.indexOf("\n");
+    return nl >= 0 ? t.slice(nl + 1) : "";
+  }
+  return t;
+}
+
+function pickChunkText(s: SourceMeta): string {
+  // chat 응답 표준화에 맞춰 최대한 텍스트를 뽑아온다
+  const candidate =
+    (typeof s.snippet === "string" && s.snippet) ||
+    (typeof (s as any).chunk === "string" && (s as any).chunk) ||
+    (typeof s?.metadata?.text === "string" && s.metadata!.text) ||
+    "";
+  return stripMetaLine(candidate).trim();
+}
+
+function safeFilename(name: string) {
+  // Windows 금지 문자 제거
+  return (name || "chunk").replace(/[\\/:*?"<>|]+/g, "_").slice(0, 120);
+}
+
+function downloadText(filename: string, text: string) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function downloadChunk(s: SourceMeta) {
+  const body = pickChunkText(s);
+  if (!body) {
+    alert("이 청크에는 저장할 텍스트가 없습니다.");
+    return;
+  }
+  const head =
+    `doc_id: ${s.doc_id ?? ""}\n` +
+    `page: ${s.page ?? ""}\n` +
+    `chunk: ${s.chunk_index ?? ""}\n\n`;
+  const fileBase = safeFilename(s.title || s.doc_id || "chunk");
+  const filename = `${fileBase}_p${s.page ?? "x"}_chunk${
+    s.chunk_index ?? "x"
+  }.txt`;
+  downloadText(filename, head + body);
+}
+
+function downloadChunkJSON(s: SourceMeta) {
+  const body = pickChunkText(s);
+  const payload = {
+    doc_id: s.doc_id ?? null,
+    page: s.page ?? null,
+    chunk_index: s.chunk_index ?? null,
+    section: s.metadata?.section ?? null,
+    text: body,
+    raw: s, // 원본 메타도 같이 담고 싶으면
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const fileBase = safeFilename(s.title || s.doc_id || "chunk");
+  a.href = url;
+  a.download = `${fileBase}_p${s.page ?? "x"}_chunk${
+    s.chunk_index ?? "x"
+  }.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 </script>
