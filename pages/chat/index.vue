@@ -48,7 +48,7 @@
                       {{ d.title || d.doc_id }}
                     </div>
                     <div v-if="d.uploaded_at" class="text-[11px] text-zinc-500">
-                      {{ d.uploaded_at }}
+                      {{ formatKST(d.uploaded_at) }}
                     </div>
                   </div>
 
@@ -185,6 +185,7 @@ import RagProgressBar from "~/components/Chat/ProgressBar.vue";
 import RagMessageBubble from "@/components/Chat/MessageBubble.vue";
 import RagInputBar from "@/components/Chat/InputBar.vue";
 import { generateId } from "~/utils/uuid";
+import { formatKST } from "~/utils/datetime";
 
 const {
   uploadDocument, // 또는 uploadAndResolve 사용 가능
