@@ -18,72 +18,83 @@
         {{ (s.snippet && s.snippet.trim()) || s.metadata?.text?.slice(0, 500) }}
       </div>
 
-      <div class="mt-2 text-xs text-zinc-400 flex flex-wrap gap-2">
-        <span v-if="s.page != null">p.{{ s.page }}</span>
-        <span v-if="s.chunk_index != null">chunk #{{ s.chunk_index }}</span>
-        <span v-if="s.metadata?.section"
-          >section: {{ s.metadata.section }}</span
-        >
+      <div class="space-y-1">
+        <!-- 메타: 한 줄 -->
+        <div class="mt-2 flex flex-wrap gap-2 text-xs text-zinc-400">
+          <span v-if="s.page != null">p.{{ s.page }}</span>
+          <span v-if="s.chunk_index != null">chunk #{{ s.chunk_index }}</span>
+          <span v-if="s.metadata?.section"
+            >section: {{ s.metadata.section }}</span
+          >
+        </div>
 
-        <!-- 1) url이 앱 내부 라우트(/로 시작)면 NuxtLink -->
-        <NuxtLink
-          v-if="s.url && s.url.startsWith('/')"
-          :to="s.url"
-          class="underline underline-offset-2 hover:text-zinc-200"
-          target="_blank"
-          rel="noreferrer"
-          title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
+        <!-- 버튼: 다음 줄 + 우측 정렬 + xs 사이즈 -->
+        <div
+          class="flex w-full flex-wrap items-center justify-end gap-3 pt-1 text-xs text-zinc-400"
         >
-          원문 열기
-        </NuxtLink>
+          <!-- 1) 내부 라우트 -->
+          <NuxtLink
+            v-if="s.url && s.url.startsWith('/')"
+            :to="s.url"
+            class="underline underline-offset-2 hover:text-zinc-200"
+            target="_blank"
+            rel="noreferrer"
+            title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
+          >
+            원문 열기
+          </NuxtLink>
 
-        <!-- 2) 외부 URL이면 a 링크 -->
-        <a
-          v-else-if="s.url"
-          :href="s.url"
-          class="underline underline-offset-2 hover:text-zinc-200"
-          target="_blank"
-          rel="noreferrer"
-          title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
-        >
-          원문 열기
-        </a>
+          <!-- 2) 외부 URL -->
+          <a
+            v-else-if="s.url"
+            :href="s.url"
+            class="underline underline-offset-2 hover:text-zinc-200"
+            target="_blank"
+            rel="noreferrer"
+            title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
+          >
+            원문 열기
+          </a>
 
-        <!-- 3) url이 비어있으면 폴백 핸들러로 동작 -->
-        <button
-          v-else
-          type="button"
-          class="underline underline-offset-2 hover:text-zinc-200"
-          @click="openSource(s)"
-          title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
-        >
-          원문 보기
-        </button>
-        <button
-          v-if="s.doc_id"
-          type="button"
-          class="underline underline-offset-2 hover:text-zinc-200"
-          @click="downloadSourceOriginal(s)"
-          title="해당 문서의 원본 파일을 다운로드 합니다"
-        >
-          원본 다운로드
-        </button>
-        <button
-          type="button"
-          class="underline underline-offset-2 hover:text-zinc-200"
-          @click="downloadChunk(s)"
-          title="해당 청크를 .txt 파일로 다운로드 합니다"
-        >
-          청크 다운로드
-        </button>
-        <button
-          type="button"
-          class="underline underline-offset-2 hover:text-zinc-200"
-          @click="downloadChunkJSON(s)"
-          title="해당 청크를 JSON 파일로 다운로드 합니다"
-        >
-          청크 JSON
-        </button>
+          <!-- 3) 폴백 -->
+          <button
+            v-else
+            type="button"
+            class="underline underline-offset-2 hover:text-zinc-200"
+            @click="openSource(s)"
+            title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
+          >
+            원문 보기
+          </button>
+
+          <button
+            v-if="s.doc_id"
+            type="button"
+            class="underline underline-offset-2 hover:text-zinc-200"
+            @click="downloadSourceOriginal(s)"
+            title="해당 문서의 원본 파일을 다운로드 합니다"
+          >
+            원본 다운로드
+          </button>
+
+          <button
+            type="button"
+            class="underline underline-offset-2 hover:text-zinc-200"
+            @click="downloadChunk(s)"
+            title="해당 청크를 .txt 파일로 다운로드 합니다"
+          >
+            청크 다운로드
+          </button>
+
+          <button
+            type="button"
+            class="underline underline-offset-2 hover:text-zinc-200"
+            @click="downloadChunkJSON(s)"
+            title="해당 청크를 JSON 파일로 다운로드 합니다"
+          >
+            청크 JSON
+          </button>
+        </div>
       </div>
     </div>
   </div>
