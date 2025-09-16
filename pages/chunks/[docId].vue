@@ -12,9 +12,14 @@
             </div>
             <div class="text-xs text-zinc-400">
               문서 id: <code class="text-zinc-300">{{ docId }}</code>
-              <span v-if="chunks.length" class="ml-2"
-                >총 {{ chunks.length }}개 청크</span
-              >
+
+              <!-- 총 개수 있으면 "로드 / 전체", 없으면 로드된 개수만 -->
+              <span v-if="totalChunks != null" class="ml-2">
+                {{ chunks.length }} / {{ totalChunks }}
+              </span>
+              <span v-else-if="chunks.length" class="ml-2">
+                총 {{ chunks.length }}개 청크
+              </span>
             </div>
           </div>
 
@@ -128,7 +133,7 @@
                 title="클립보드 복사"
               >
                 <Icon
-                  v-if="copiedKey === `${c.doc_id}:${c.page}:${c.chunk_index}`"
+                  v-if="isCopied(c)"
                   name="material-symbols:check-small-rounded"
                   class="w-3.5 h-3.5"
                 />
@@ -151,7 +156,7 @@
             class="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm"
             @click="loadMore()"
           >
-            더 불러오기 ({{ limit + step }}개)
+            더 불러오기 ({{ limit + step }}개까지)
           </button>
         </div>
       </div>
@@ -178,7 +183,13 @@ type ChunkItem = {
 const route = useRoute();
 const docId = String(route.params.docId || "");
 
-const { getDocInfo, getDocChunks, getViewUrl, getDownloadUrl } = useApi();
+const {
+  getDocInfo,
+  getDocChunks,
+  getViewUrl,
+  getDownloadUrl,
+  getDocChunkCount,
+} = useApi();
 
 const title = ref<string>("");
 const pdfKey = ref<string>("");
@@ -197,9 +208,6 @@ const limit = ref(300); // 최초 로드 개수
 const step = 200; // 더 불러오기 증가폭
 
 const canLoadMore = computed(() => chunks.value.length >= limit.value);
-
-// 파일 상단 <script setup> 안
-const copiedKey = ref<string | null>(null);
 
 async function copyTextSafe(text: string) {
   try {
@@ -221,20 +229,61 @@ async function copyTextSafe(text: string) {
     }
   }
 }
+// 복사된 청크들의 상태를 관리하는 Set 사용
+const copiedChunks = ref<Set<string>>(new Set());
+
+// 각 청크의 고유 키 생성 함수
+function getChunkKey(c: ChunkItem): string {
+  return `${c.doc_id}:${c.page ?? "x"}:${c.chunk_index ?? "x"}:${c.id ?? "x"}`;
+}
+
+// 특정 청크가 복사되었는지 확인하는 computed
+const isCopied = computed(() => {
+  return (chunk: ChunkItem) => copiedChunks.value.has(getChunkKey(chunk));
+});
 
 async function copy(c: ChunkItem) {
   const t = stripMeta(c.chunk || "");
   if (!t) return;
+
   const ok = await copyTextSafe(t);
-  if (ok) {
-    // 버튼 피드백(2초간 체크 아이콘)
-    const key = `${c.doc_id}:${c.page}:${c.chunk_index}`;
-    copiedKey.value = key;
-    setTimeout(() => (copiedKey.value = null), 2000);
-  } else {
+  if (!ok) {
     alert("클립보드 복사 실패. 브라우저 권한/HTTPS 여부를 확인해주세요.");
+    return;
+  }
+
+  const key = getChunkKey(c);
+  copiedChunks.value.add(key);
+
+  // 2초 후 복사 상태 제거
+  setTimeout(() => {
+    copiedChunks.value.delete(key);
+  }, 2000);
+}
+
+// <script setup>
+const totalChunks = ref<number | null>(null);
+
+async function loadCount() {
+  try {
+    totalChunks.value = await getDocChunkCount(docId);
+  } catch {
+    totalChunks.value = null; // 실패 시 표시만 로드된 개수로
   }
 }
+
+onMounted(async () => {
+  await Promise.all([loadMeta(), loadCount(), loadChunks()]);
+});
+
+watch(
+  () => route.params.docId,
+  async () => {
+    totalChunks.value = null;
+    chunks.value = [];
+    await Promise.all([loadMeta(), loadCount(), loadChunks()]);
+  }
+);
 
 function stripMeta(t: string) {
   if (!t) return "";
@@ -269,15 +318,17 @@ async function loadChunks() {
   try {
     // full=true → 서버에서 자르지 않도록
     const items = await getDocChunks(docId, limit.value, true);
-    chunks.value = items.map((it: any, i: number) => ({
-      id: it.id ?? i,
-      doc_id: it.doc_id,
-      page: it.page ?? it.page_num,
-      section: it.section ?? it.metadata?.section,
-      chunk: it.chunk ?? it.text ?? it.content ?? it.metadata?.text,
-      chunk_index: it.chunk_index ?? it.idx ?? it.index,
-      score: it.score ?? it.similarity ?? it.re_score,
-    }));
+    chunks.value = (Array.isArray(items) ? items : []).map(
+      (it: any, i: number) => ({
+        id: it.id ?? i,
+        doc_id: it.doc_id,
+        page: it.page ?? it.page_num ?? null,
+        section: it.section ?? it?.metadata?.section ?? "",
+        chunk: it.chunk ?? it.text ?? it.content ?? it?.metadata?.text ?? "",
+        chunk_index: it.chunk_index ?? it.idx ?? it.index ?? null,
+        score: it.score ?? it.similarity ?? it.re_score ?? null,
+      })
+    );
   } catch (e: any) {
     error.value = e?.message || String(e);
   } finally {
@@ -286,27 +337,37 @@ async function loadChunks() {
 }
 
 function sortFn(a: ChunkItem, b: ChunkItem) {
-  if (sortKey.value === "idx") {
-    return (a.chunk_index ?? 0) - (b.chunk_index ?? 0);
-  }
-  // default: page, idx
-  if ((a.page ?? 0) !== (b.page ?? 0)) return (a.page ?? 0) - (b.page ?? 0);
-  return (a.chunk_index ?? 0) - (b.chunk_index ?? 0);
+  const pa = a.page ?? Number.MAX_SAFE_INTEGER;
+  const pb = b.page ?? Number.MAX_SAFE_INTEGER;
+  if (pa !== pb) return pa - pb;
+  const ia = a.chunk_index ?? Number.MAX_SAFE_INTEGER;
+  const ib = b.chunk_index ?? Number.MAX_SAFE_INTEGER;
+  if (ia !== ib) return ia - ib;
+  return String(a.id ?? "").localeCompare(String(b.id ?? ""));
 }
 
 const visibleChunks = computed(() => {
   const qq = q.value.trim().toLowerCase();
   const arr = chunks.value.slice();
-  if (qq) {
-    return arr
-      .filter(
+  let out = qq
+    ? arr.filter(
         (c) =>
           (c.chunk || "").toLowerCase().includes(qq) ||
           (c.section || "").toLowerCase().includes(qq)
       )
-      .sort(sortFn);
+    : arr;
+
+  if (sortKey.value === "idx") {
+    // 인덱스 → 페이지 → id
+    return out.slice().sort((a, b) => {
+      const ia = a.chunk_index ?? Number.MAX_SAFE_INTEGER;
+      const ib = b.chunk_index ?? Number.MAX_SAFE_INTEGER;
+      if (ia !== ib) return ia - ib;
+      return sortFn(a, b);
+    });
   }
-  return arr.sort(sortFn);
+  // 기본: 페이지 → 인덱스 → id
+  return out.slice().sort(sortFn);
 });
 
 function openPdf(page?: number) {

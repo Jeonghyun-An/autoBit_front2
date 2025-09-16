@@ -380,6 +380,14 @@ export function useApi() {
     return items || [];
   }
 
+  // composables/useApi.ts
+  async function getDocChunkCount(docId: string) {
+    const r = await fetch(`${API}/doc/${encodeURIComponent(docId)}`);
+    if (!r.ok) throw new Error(await r.text());
+    const j = await r.json();
+    return typeof j?.chunks === "number" ? j.chunks : null;
+  }
+
   return {
     // uploads
     uploadDocument,
@@ -405,5 +413,6 @@ export function useApi() {
     //chunking debug
     getDocChunks,
     getDocInfo,
+    getDocChunkCount,
   };
 }
