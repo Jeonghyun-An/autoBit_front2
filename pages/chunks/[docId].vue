@@ -10,15 +10,18 @@
             <div class="text-lg font-semibold truncate">
               {{ title || docId }}
             </div>
-            <div class="text-xs text-zinc-400">
-              문서 id: <code class="text-zinc-300">{{ docId }}</code>
+            <div
+              class="flex justify-between items-center text-xs text-zinc-400"
+            >
+              <code class="text-zinc-300">{{ docId }}</code>
 
               <!-- 총 개수 있으면 "로드 / 전체", 없으면 로드된 개수만 -->
-              <span v-if="totalChunks != null" class="ml-2">
-                {{ chunks.length }} / {{ totalChunks }}
-              </span>
-              <span v-else-if="chunks.length" class="ml-2">
-                총 {{ chunks.length }}개 청크
+              <div v-if="totalChunks != null">
+                <span class="text-zinc-200">{{ chunks.length }}</span>
+                <span> / {{ totalChunks }}</span>
+              </div>
+              <span v-else-if="chunks.length" class="ml-3">
+                총 {{ chunks.length }}개 청크 로드됨
               </span>
             </div>
           </div>
@@ -90,8 +93,11 @@
 
       <!-- Body -->
       <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 scrollbar-zinc">
-        <div v-if="loading" class="text-sm text-zinc-400">
-          <Icon name="line-md:loading-twotone-loop" class="w-4 h-4" />
+        <div
+          v-if="loading"
+          class="text-sm text-zinc-400 flex justify-center items-center py-10"
+        >
+          <Icon name="line-md:loading-twotone-loop" class="w-8 h-8" />
         </div>
         <div v-else-if="error" class="text-sm text-red-400">{{ error }}</div>
         <div v-else-if="!visibleChunks.length" class="text-sm text-zinc-400">
@@ -111,9 +117,12 @@
               <span v-if="c.chunk_index != null"
                 >chunk #{{ c.chunk_index }}</span
               >
-              <span v-if="c.section" class="truncate max-w-[28rem]"
-                >section: {{ c.section }}</span
+              <div
+                v-if="c.section"
+                class="text-xs text-zinc-400 whitespace-pre-wrap break-words"
               >
+                section: {{ c.section }}
+              </div>
             </div>
 
             <div class="flex items-center gap-2 shrink-0">
@@ -147,7 +156,7 @@
           </div>
 
           <div class="mt-2 text-sm whitespace-pre-wrap leading-6">
-            {{ displayText(c.chunk) }}
+            {{ renderBody(c) }}
           </div>
         </div>
 
@@ -285,18 +294,55 @@ watch(
   }
 );
 
-function stripMeta(t: string) {
-  if (!t) return "";
-  if (t.startsWith("META:")) {
-    const nl = t.indexOf("\n");
-    return nl >= 0 ? t.slice(nl + 1) : "";
+// 유틸: META 라인 제거
+function stripMeta(t?: string) {
+  const s = t || "";
+  if (s.startsWith("META:")) {
+    const nl = s.indexOf("\n");
+    return nl >= 0 ? s.slice(nl + 1) : "";
   }
-  return t;
+  return s;
 }
-function displayText(t?: string) {
-  const body = hideMeta.value ? stripMeta(t || "") : t || "";
-  if (!q.value) return body;
-  // 간단 강조(선택): 여기선 텍스트 그대로 표시하므로 강조는 생략
+
+function escapeRegExp(x: string) {
+  return x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// 유틸: 연속으로 같은 줄이 반복되면 한 번만 남김
+function collapseConsecutiveDuplicates(text: string) {
+  const lines = text.split(/\r?\n/);
+  const out: string[] = [];
+  for (const l of lines) {
+    const t = l.trim();
+    const last = out.length > 0 ? out[out.length - 1] : undefined;
+    if (!last || last.trim() !== t) out.push(l);
+  }
+  return out.join("\n");
+}
+
+// 섹션과 겹치는 본문 첫머리 제거(대괄호/접두어 변형도 처리)
+function removeSectionEcho(section: string, body: string) {
+  const sec = (section || "").trim();
+  if (!sec) return body;
+
+  let b = body.trimStart();
+  const pats = [
+    new RegExp("^" + escapeRegExp(sec) + "\\s*\\n?", "u"),
+    new RegExp("^\\[[-+•*\\s]*" + escapeRegExp(sec) + "\\s*\\]\\s*\\n?", "u"),
+    new RegExp(
+      "^(section|섹션)\\s*[:：]\\s*" + escapeRegExp(sec) + "\\s*\\n?",
+      "iu"
+    ),
+  ];
+  for (const p of pats) b = b.replace(p, "");
+  return b;
+}
+
+// 검색어 하이라이트를 안 쓴다면 displayText 대체로 renderBody 사용
+function renderBody(c: { section?: string; chunk?: string }) {
+  let body = stripMeta(c.chunk || "");
+  body = removeSectionEcho(c.section || "", body);
+  body = collapseConsecutiveDuplicates(body);
   return body;
 }
 
