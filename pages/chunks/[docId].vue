@@ -128,9 +128,15 @@
                 title="클립보드 복사"
               >
                 <Icon
+                  v-if="copiedKey === `${c.doc_id}:${c.page}:${c.chunk_index}`"
+                  name="material-symbols:check-small-rounded"
+                  class="w-3.5 h-3.5"
+                />
+                <Icon
+                  v-else
                   name="material-symbols:content-copy-outline"
                   class="w-3.5 h-3.5"
-                ></Icon>
+                />
               </button>
             </div>
           </div>
@@ -191,6 +197,44 @@ const limit = ref(300); // 최초 로드 개수
 const step = 200; // 더 불러오기 증가폭
 
 const canLoadMore = computed(() => chunks.value.length >= limit.value);
+
+// 파일 상단 <script setup> 안
+const copiedKey = ref<string | null>(null);
+
+async function copyTextSafe(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+async function copy(c: ChunkItem) {
+  const t = stripMeta(c.chunk || "");
+  if (!t) return;
+  const ok = await copyTextSafe(t);
+  if (ok) {
+    // 버튼 피드백(2초간 체크 아이콘)
+    const key = `${c.doc_id}:${c.page}:${c.chunk_index}`;
+    copiedKey.value = key;
+    setTimeout(() => (copiedKey.value = null), 2000);
+  } else {
+    alert("클립보드 복사 실패. 브라우저 권한/HTTPS 여부를 확인해주세요.");
+  }
+}
 
 function stripMeta(t: string) {
   if (!t) return "";
@@ -277,14 +321,6 @@ function downloadOriginal() {
   const name = origName.value || title.value || docId;
   const url = getDownloadUrl(origKey.value, name);
   window.open(url, "_blank", "noopener,noreferrer");
-}
-
-async function copy(c: ChunkItem) {
-  try {
-    await navigator.clipboard.writeText(stripMeta(c.chunk || ""));
-  } catch {
-    /* noop */
-  }
 }
 
 async function reload() {
