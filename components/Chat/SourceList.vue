@@ -15,7 +15,15 @@
       </div>
 
       <div class="mt-1 text-sm text-zinc-300 whitespace-pre-line">
-        {{ (s.snippet && s.snippet.trim()) || s.metadata?.text?.slice(0, 500) }}
+        {{ getDisplayText(s, i) }}
+        <button
+          v-if="shouldShowMore(s)"
+          type="button"
+          class="mt-2 text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-200"
+          @click="toggleExpanded(i)"
+        >
+          {{ expandedStates[i] ? "접기" : "더보기" }}
+        </button>
       </div>
 
       <div class="space-y-1">
@@ -103,6 +111,7 @@
 <script setup lang="ts">
 import type { SourceMeta } from "@/composables/useApi";
 import { useApi } from "@/composables/useApi";
+import { ref, reactive } from "vue";
 
 defineProps<{ sources?: SourceMeta[] }>();
 const {
@@ -111,6 +120,9 @@ const {
   getViewUrl,
   getDownloadUrl,
 } = useApi();
+
+// 각 소스의 확장 상태를 관리
+const expandedStates = reactive<Record<number, boolean>>({});
 
 async function openSource(s: SourceMeta) {
   try {
@@ -147,6 +159,7 @@ async function downloadSourceOriginal(s: SourceMeta) {
     alert("원본 다운로드 중 오류가 발생했습니다.");
   }
 }
+
 function stripMetaLine(t?: string) {
   if (!t) return "";
   if (t.startsWith("META:")) {
@@ -154,6 +167,49 @@ function stripMetaLine(t?: string) {
     return nl >= 0 ? t.slice(nl + 1) : "";
   }
   return t;
+}
+
+function stripSectionBrackets(t: string) {
+  // [섹션 내용] 형태의 대괄호로 둘러싸인 부분을 제거
+  // 줄 시작에서 [로 시작하고 ]로 끝나는 줄을 찾아서 제거
+  return t.replace(/^\[.*?\]\s*\n?/gm, "").trim();
+}
+
+function cleanSnippet(s: SourceMeta): string {
+  // 1. snippet 또는 chunk에서 텍스트 추출
+  const candidate =
+    (typeof s.snippet === "string" && s.snippet) ||
+    (typeof (s as any).chunk === "string" && (s as any).chunk) ||
+    (typeof s?.metadata?.text === "string" && s.metadata!.text) ||
+    "";
+
+  // 2. META 라인 제거
+  let cleaned = stripMetaLine(candidate);
+
+  // 3. [섹션] 부분 제거
+  cleaned = stripSectionBrackets(cleaned);
+
+  return cleaned.trim();
+}
+
+function shouldShowMore(s: SourceMeta): boolean {
+  const fullText = cleanSnippet(s);
+  return fullText.length > 500;
+}
+
+function getDisplayText(s: SourceMeta, index: number): string {
+  const fullText = cleanSnippet(s);
+  const isExpanded = expandedStates[index];
+
+  if (fullText.length <= 500 || isExpanded) {
+    return fullText;
+  }
+
+  return fullText.slice(0, 500) + "...";
+}
+
+function toggleExpanded(index: number) {
+  expandedStates[index] = !expandedStates[index];
 }
 
 function pickChunkText(s: SourceMeta): string {
