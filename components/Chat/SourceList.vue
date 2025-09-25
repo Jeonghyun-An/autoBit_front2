@@ -8,10 +8,13 @@
       :key="s.id || i"
       class="rounded-xl border border-zinc-800 p-3 bg-zinc-900/40"
     >
-      <div class="flex items-center justify-between gap-3">
-        <span v-if="typeof s.score === 'number'" class="text-xs text-zinc-400">
+      <div class="flex items-center gap-3 text-xs text-zinc-400">
+        <span v-if="typeof s.score === 'number'">
           score {{ s.score.toFixed(3) }}
         </span>
+        <span v-if="s.metadata?.section"
+          >section: {{ s.metadata.section }}</span
+        >
       </div>
 
       <div class="mt-1 text-sm text-zinc-300 whitespace-pre-line">
@@ -28,12 +31,12 @@
 
       <div class="space-y-1">
         <!-- 메타: 한 줄 -->
-        <div class="mt-2 flex flex-wrap gap-2 text-xs text-zinc-400">
+        <div class="mt-2 flex flex-wrap gap-3 text-xs text-zinc-400">
           <span v-if="s.page != null">p.{{ s.page }}</span>
+          <span v-if="s.doc_id != null">
+            {{ s.doc_id }}
+          </span>
           <span v-if="s.chunk_index != null">chunk #{{ s.chunk_index }}</span>
-          <span v-if="s.metadata?.section"
-            >section: {{ s.metadata.section }}</span
-          >
         </div>
 
         <!-- 버튼: 다음 줄 + 우측 정렬 + xs 사이즈 -->
