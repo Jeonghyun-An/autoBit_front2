@@ -25,17 +25,18 @@ function normalizeLists(src: string) {
     s = s.replace(re, (_m, p1) => `${p1}**${lab}**:`);
   });
 
-  // 1) "1) 2) 3)" → 번호 목록으로
-  s = s.replace(/(?:^|\n)(.*?)\s*(\d+[\)\.]\s+[^]+)$/m, (_m, head, tail) => {
-    const items = tail
-      .split(/\s*(?=\d+[\)\.]\s+)/g)
-      .filter(Boolean)
-      .map((t: string) =>
-        t.replace(/^(\d+)[\)\.]\s+/, (_m2: any, n: any) => `${n}. `).trim()
-      );
-    const listBlock = items.length > 1 ? `\n\n${items.join("\n")}` : ` ${tail}`;
-    return `${head.trim()}${listBlock}`;
-  });
+  //   // 1) "1) 2) 3)" → 번호 목록으로
+  //   s = s.replace(/(?:^|\n)(.*?)\s*(\d+[\)\.]\s+[^]+)$/m, (_m, head, tail) => {
+  //     const items = tail
+  //       .split(/\s*(?=\d+[\)\.]\s+)/g)
+  //       .filter(Boolean)
+  //       .map((t: string) =>
+  //         t.replace(/^(\d+)[\)\.]\s+/, (_m2: any, n: any) => `${n}. `).trim()
+  //       );
+  //     const listBlock = items.length > 1 ? `\n\n${items.join("\n")}` : ` ${tail}`;
+  //     return `${head.trim()}${listBlock}`;
+  //   });
+  //   s = s.replace(/\/\n(\d+)\.\s/g, "/$1. ");
 
   // 2️⃣ 콜론(:) 뒤에 바로 이어지는 불릿(공백 유무 상관없음)을 줄바꿈 리스트로
   //     예) "include:- A" → "include:\n\n- A"
