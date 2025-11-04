@@ -5,10 +5,11 @@ export default defineNuxtConfig({
   modules: ["@nuxtjs/tailwindcss", "@nuxt/icon"],
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || "/llama",
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || "/rag/llama",
     },
   },
   app: {
+    baseURL: process.env.NUXT_APP_BASE_URL || "/rag/",
     head: {
       title: "RAG System",
       meta: [

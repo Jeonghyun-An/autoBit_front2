@@ -14,6 +14,7 @@ RUN npm ci
 
 # 소스 복사 & 빌드
 COPY . .
+ENV NUXT_APP_BASE_URL=/rag/
 RUN npm run build
 
 # ---- runner ----
@@ -25,7 +26,8 @@ ENV NODE_ENV=production
 ENV NITRO_HOST=0.0.0.0
 ENV NITRO_PORT=3000
 ENV PORT=3000
-ENV NUXT_PUBLIC_API_BASE=/llama
+ENV NUXT_APP_BASE_URL=/rag/
+ENV NUXT_PUBLIC_API_BASE=/rag/llama
 
 # Nuxt 빌드 결과만 복사 (node_modules 불필요)
 COPY --from=builder /app/.output ./.output
