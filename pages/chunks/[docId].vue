@@ -7,13 +7,13 @@
       >
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
-            <div class="text-lg font-semibold truncate">
+            <div class="text-lg font-semibold break-all">
               {{ title || docId }}
             </div>
             <div
-              class="flex justify-between items-center text-xs text-zinc-400"
+              class="flex justify-start items-baseline pt-1 text-xs text-zinc-400"
             >
-              <code class="text-zinc-300">{{ docId }}</code>
+              <!-- <code class="text-zinc-300 break-all">{{ docId }}</code> -->
 
               <!-- 총 개수 있으면 "로드 / 전체", 없으면 로드된 개수만 -->
               <div v-if="totalChunks != null">
@@ -29,7 +29,7 @@
           <div class="flex items-center gap-2 shrink-0">
             <NuxtLink
               to="/"
-              class="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-xs inline-flex items-center gap-1"
+              class="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-xs inline-flex items-center gap-1 whitespace-nowrap"
             >
               <Icon name="ic:twotone-arrow-back" class="w-4 h-4" />돌아가기
             </NuxtLink>
@@ -37,7 +37,7 @@
             <button
               v-if="pdfKey"
               type="button"
-              class="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-xs inline-flex items-center gap-1"
+              class="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-xs inline-flex items-center gap-1 whitespace-nowrap"
               @click="openPdf()"
               title="변환된 PDF 뷰어 열기"
             >
@@ -51,7 +51,7 @@
             <button
               v-if="origKey"
               type="button"
-              class="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-xs inline-flex items-center gap-1"
+              class="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-xs inline-flex items-center gap-1 whitespace-nowrap"
               @click="downloadOriginal()"
               title="원본 파일 다운로드"
             >
@@ -107,14 +107,16 @@
         <div
           v-for="(c, i) in visibleChunks"
           :key="c.id || `${c.doc_id}-${c.page}-${i}`"
-          class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"
+          class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 w-full"
         >
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center justify-between gap-3 flex-wrap w-full">
             <div
               class="text-xs text-zinc-400 flex flex-wrap items-center gap-3"
             >
-              <span v-if="c.page != null">p. {{ c.page }}</span>
-              <span v-if="c.chunk_index != null"
+              <span v-if="c.page != null" class="whitespace-nowrap"
+                >p. {{ c.page }}</span
+              >
+              <span v-if="c.chunk_index != null" class="whitespace-nowrap"
                 >chunk #{{ c.chunk_index }}</span
               >
               <div
@@ -129,7 +131,7 @@
               <button
                 v-if="pdfKey"
                 type="button"
-                class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
+                class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 whitespace-nowrap"
                 @click="openPdf(c.page)"
                 title="해당 페이지로 열기"
               >

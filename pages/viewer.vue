@@ -1,12 +1,12 @@
 <template>
   <div class="h-screen w-full bg-zinc-950 text-zinc-100 flex flex-col">
     <header
-      class="shrink-0 px-4 py-3 border-b border-zinc-800 flex items-center justify-between"
+      class="shrink-0 px-4 py-3 border-b border-zinc-800 flex items-center justify-between gap-4"
     >
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-4 min-w-0 flex-1">
         <button
           type="button"
-          class="px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
+          class="px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 shrink-0"
           @click="goBack"
           aria-label="뒤로가기"
         >
@@ -22,17 +22,20 @@
             />
           </svg>
         </button>
-        <div class="font-medium truncate max-w-[60vw]">
+        <div
+          class="font-medium break-all min-w-0 flex-1"
+          :title="displayName || '문서 보기'"
+        >
           {{ displayName || "문서 보기" }}
         </div>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 shrink-0">
         <a
           v-if="downloadUrl"
           :href="downloadUrl"
           target="_blank"
           rel="noopener"
-          class="px-3 py-1.5 rounded-md bg-indigo-500 hover:bg-indigo-400 text-white text-sm"
+          class="px-3 py-1.5 rounded-md bg-indigo-500 hover:bg-indigo-400 text-white text-sm whitespace-nowrap"
         >
           원본 다운로드
         </a>
@@ -44,9 +47,9 @@
         v-if="!objectKey"
         class="h-full grid place-items-center text-zinc-400 px-6 text-center"
       >
-        <div>
+        <div class="max-w-2xl break-words">
           <div class="text-lg font-semibold mb-2">문서 키가 없습니다</div>
-          <p class="text-sm">
+          <p class="text-sm break-all">
             /viewer?object=uploaded/파일명.pdf&name=표시이름&orig=uploaded/originals/원본파일
             형태로 접근해주세요.
           </p>

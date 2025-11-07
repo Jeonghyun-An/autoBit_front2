@@ -9,7 +9,7 @@
           style="scrollbar-gutter: stable"
           :placeholder="
             disabled
-              ? '임베딩이 완료되면 질문할 수 있어요…'
+              ? '파일이 업로드 되면 질문할 수 있어요…'
               : '질문을 입력하세요. 무엇이 궁금한가요?'
           "
           v-model="value"

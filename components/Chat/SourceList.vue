@@ -2,41 +2,49 @@
   <div v-if="!sources?.length" class="text-sm text-zinc-400">
     연결된 근거가 없습니다.
   </div>
-  <div v-else class="space-y-2">
+  <div v-else class="space-y-2 w-full">
     <div
       v-for="(s, i) in sources"
       :key="s.id || i"
-      class="rounded-xl border border-zinc-800 p-3 bg-zinc-900/40"
+      class="rounded-xl border border-zinc-800 p-3 bg-zinc-900/40 w-full"
     >
-      <div class="flex items-center gap-3 text-xs text-zinc-400">
-        <span v-if="typeof s.score === 'number'">
+      <div
+        class="flex items-center gap-3 text-xs text-zinc-400 flex-wrap w-full"
+      >
+        <span v-if="typeof s.score === 'number'" class="whitespace-nowrap">
           score {{ s.score.toFixed(3) }}
         </span>
-        <span v-if="s.metadata?.section"
+        <span v-if="s.metadata?.section" class="break-words"
           >section: {{ s.metadata.section }}</span
         >
       </div>
 
-      <div class="mt-1 text-sm text-zinc-300 whitespace-pre-line">
+      <div
+        class="mt-1 text-sm text-zinc-300 whitespace-pre-line break-words w-full"
+      >
         {{ getDisplayText(s, i) }}
         <button
           v-if="shouldShowMore(s)"
           type="button"
-          class="mt-2 text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-200"
+          class="mt-2 text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-200 whitespace-nowrap"
           @click="toggleExpanded(i)"
         >
           {{ expandedStates[i] ? "접기" : "더보기" }}
         </button>
       </div>
 
-      <div class="space-y-1">
+      <div class="space-y-1 w-full">
         <!-- 메타: 한 줄 -->
-        <div class="mt-2 flex flex-wrap gap-3 text-xs text-zinc-400">
-          <span v-if="s.page != null">p.{{ s.page }}</span>
-          <span v-if="s.doc_id != null">
+        <div class="mt-2 flex flex-wrap gap-3 text-xs text-zinc-400 w-full">
+          <span v-if="s.page != null" class="whitespace-nowrap"
+            >p.{{ s.page }}</span
+          >
+          <span v-if="s.doc_id != null" class="break-all" :title="s.doc_id">
             {{ s.doc_id }}
           </span>
-          <span v-if="s.chunk_index != null">chunk #{{ s.chunk_index }}</span>
+          <span v-if="s.chunk_index != null" class="whitespace-nowrap"
+            >chunk #{{ s.chunk_index }}</span
+          >
         </div>
 
         <!-- 버튼: 다음 줄 + 우측 정렬 + xs 사이즈 -->
@@ -47,7 +55,7 @@
           <NuxtLink
             v-if="s.url && s.url.startsWith('/')"
             :to="s.url"
-            class="underline underline-offset-2 hover:text-zinc-200"
+            class="underline underline-offset-2 hover:text-zinc-200 whitespace-nowrap"
             target="_blank"
             rel="noreferrer"
             title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
@@ -59,7 +67,7 @@
           <a
             v-else-if="s.url"
             :href="s.url"
-            class="underline underline-offset-2 hover:text-zinc-200"
+            class="underline underline-offset-2 hover:text-zinc-200 whitespace-nowrap"
             target="_blank"
             rel="noreferrer"
             title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
@@ -71,7 +79,7 @@
           <button
             v-else
             type="button"
-            class="underline underline-offset-2 hover:text-zinc-200"
+            class="underline underline-offset-2 hover:text-zinc-200 whitespace-nowrap"
             @click="openSource(s)"
             title="해당 청크가 위치한 페이지를 새 탭에서 엽니다"
           >
@@ -81,7 +89,7 @@
           <button
             v-if="s.doc_id"
             type="button"
-            class="underline underline-offset-2 hover:text-zinc-200"
+            class="underline underline-offset-2 hover:text-zinc-200 whitespace-nowrap"
             @click="downloadSourceOriginal(s)"
             title="해당 문서의 원본 파일을 다운로드 합니다"
           >
@@ -90,7 +98,7 @@
 
           <button
             type="button"
-            class="underline underline-offset-2 hover:text-zinc-200"
+            class="underline underline-offset-2 hover:text-zinc-200 whitespace-nowrap"
             @click="downloadChunk(s)"
             title="해당 청크를 .txt 파일로 다운로드 합니다"
           >
@@ -99,7 +107,7 @@
 
           <button
             type="button"
-            class="underline underline-offset-2 hover:text-zinc-200"
+            class="underline underline-offset-2 hover:text-zinc-200 whitespace-nowrap"
             @click="downloadChunkJSON(s)"
             title="해당 청크를 JSON 파일로 다운로드 합니다"
           >
