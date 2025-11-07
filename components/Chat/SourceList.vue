@@ -172,26 +172,18 @@ function stripMetaLine(t?: string) {
   return t;
 }
 
-function stripSectionBrackets(t: string) {
-  // [섹션 내용] 형태의 대괄호로 둘러싸인 부분을 제거
-  // 줄 시작에서 [로 시작하고 ]로 끝나는 줄을 찾아서 제거
-  return t.replace(/^\[.*?\]\s*\n?/gm, "").trim();
-}
+const STRIP_SECTION_FROM_TEXT = true; // true면 섹션 제거, false면 유지
 
 function cleanSnippet(s: SourceMeta): string {
-  // 1. snippet 또는 chunk에서 텍스트 추출
   const candidate =
     (typeof s.snippet === "string" && s.snippet) ||
     (typeof (s as any).chunk === "string" && (s as any).chunk) ||
     (typeof s?.metadata?.text === "string" && s.metadata!.text) ||
     "";
-
-  // 2. META 라인 제거
   let cleaned = stripMetaLine(candidate);
-
-  // 3. [섹션] 부분 제거
-  cleaned = stripSectionBrackets(cleaned);
-
+  if (STRIP_SECTION_FROM_TEXT) {
+    cleaned = cleaned.replace(/^\[.*?\]\s*\n?/gm, "");
+  }
   return cleaned.trim();
 }
 
