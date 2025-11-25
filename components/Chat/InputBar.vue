@@ -4,12 +4,12 @@
       <div class="flex items-end gap-2">
         <textarea
           ref="taRef"
-          class="flex-1 resize-none overflow-y-auto rounded-xl bg-zinc-900 text-zinc-100 placeholder-zinc-500 p-3 pr-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 scrollbar-zinc"
+          class="flex-1 resize-none overflow-y-auto rounded-xl bg-zinc-900 text-zinc-100 placeholder-zinc-500 p-3 pr-2 focus:outline-none focus:ring-2 focus:ring-zinc-200 scrollbar-zinc"
           rows="1"
           style="scrollbar-gutter: stable"
           :placeholder="
             disabled
-              ? '파일이 업로드 되면 질문할 수 있어요…'
+              ? '챗봇 가동중... 잠시만 기다려주세요.'
               : '질문을 입력하세요. 무엇이 궁금한가요?'
           "
           v-model="value"
@@ -18,7 +18,7 @@
         />
         <button
           type="button"
-          class="px-4 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-4 py-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed text-bold"
           :disabled="disabled"
           title="전송"
           @click="submit"
