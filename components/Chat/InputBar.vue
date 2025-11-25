@@ -82,6 +82,16 @@ function onResize() {
   autoresize();
 }
 
+// 외부에서 호출할 수 있는 포커스 메서드
+function focus() {
+  taRef.value?.focus();
+}
+
+// defineExpose로 부모 컴포넌트에서 접근 가능하도록 노출
+defineExpose({
+  focus,
+});
+
 onMounted(() => {
   autoresize();
   window.addEventListener("resize", onResize);
