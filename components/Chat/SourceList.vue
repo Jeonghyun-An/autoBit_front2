@@ -39,8 +39,13 @@
           <span v-if="s.page != null" class="whitespace-nowrap"
             >p.{{ s.page }}</span
           >
-          <span v-if="s.doc_id != null" class="break-all" :title="s.doc_id">
-            {{ s.doc_id }}
+          <!-- doc_id는 title로만 힌트 제공 -->
+          <span
+            v-if="s.doc_id"
+            class="hidden sm:inline break-all"
+            :title="s.doc_id"
+          >
+            {{ s.title || "" }}
           </span>
           <span v-if="s.chunk_index != null" class="whitespace-nowrap"
             >chunk #{{ s.chunk_index }}</span
@@ -86,7 +91,7 @@
             원문 보기
           </button>
 
-          <button
+          <!-- <button
             v-if="s.doc_id"
             type="button"
             class="underline underline-offset-2 hover:text-zinc-200 whitespace-nowrap"
@@ -94,7 +99,7 @@
             title="해당 문서의 원본 파일을 다운로드 합니다"
           >
             원본 다운로드
-          </button>
+          </button> -->
 
           <button
             type="button"
@@ -130,25 +135,45 @@ const {
   resolveOriginalByDocId,
   getViewUrl,
   getDownloadUrl,
+  getMetaByDocId,
 } = useApi();
 
 // 각 소스의 확장 상태를 관리
 const expandedStates = reactive<Record<number, boolean>>({});
 
+// doc_id -> title 캐시
+const titleCache = reactive<Record<string, string>>({});
+async function resolveTitle(docId?: string | number | null): Promise<string> {
+  const id = String(docId || "");
+  if (!id) return "";
+  if (titleCache[id]) return titleCache[id];
+  try {
+    const meta = await getMetaByDocId(id);
+    const t = (meta?.title && String(meta.title)) || "";
+    if (t) titleCache[id] = t;
+    return t;
+  } catch {
+    return "";
+  }
+}
+
 async function openSource(s: SourceMeta) {
   try {
-    // url이 있으면 그걸 사용 (안전망)
     if (s.url) {
       window.open(s.url, "_blank", "noopener,noreferrer");
       return;
     }
-    // doc_id → object_key 매핑해서 뷰어 라우트 구성
     const key = await resolveObjectKeyByDocId(s.doc_id || "");
     if (!key) {
       alert("원문 경로를 찾지 못했습니다.");
       return;
     }
-    const name = s.title || `${s.doc_id}.pdf`;
+    // 제목 보정: s.title > meta.title > doc_id.pdf
+    let name = s.title;
+    if (!name && s.doc_id) {
+      const meta = await getMetaByDocId(s.doc_id);
+      name = meta?.title || `${s.doc_id}.pdf`;
+    }
     const viewer = getViewUrl(key, name, s.page ?? undefined);
     window.open(viewer, "_blank", "noopener,noreferrer");
   } catch (e) {
@@ -156,6 +181,7 @@ async function openSource(s: SourceMeta) {
     alert("원문을 여는 중 오류가 발생했습니다.");
   }
 }
+
 async function downloadSourceOriginal(s: SourceMeta) {
   try {
     const orig = await resolveOriginalByDocId(s.doc_id || "");

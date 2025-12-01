@@ -1,35 +1,70 @@
 <template>
-  <div class="h-screen w-full bg-zinc-950 text-zinc-100 flex">
-    <div class="flex-1 min-h-0 max-w-5xl mx-auto flex flex-col">
+  <div
+    class="h-screen w-full bg-zinc-100 text-zinc-950 flex relative overflow-hidden"
+  >
+    <!-- 🔹 중앙 워터마크 배경 레이어
+    <div
+      v-if="bgImage"
+      class="absolute inset-0 z-0 pointer-events-none flex items-center justify-center"
+      aria-hidden="true"
+    >
+      <div class="relative" style="width: 50vw; height: 50vh">
+        <img
+          :src="bgImage"
+          alt=""
+          class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-40 select-none object-contain w-full h-full"
+          draggable="false"
+        />
+      </div>
+    </div> -->
+
+    <!-- ✅ 기존 내용 그대로 -->
+    <div class="flex-1 min-h-0 max-w-5xl mx-auto flex flex-col relative z-10">
       <!-- Header -->
-      <div
-        class="px-4 py-3 border-b border-zinc-800 sticky top-0 bg-zinc-950/80 backdrop-blur z-10"
+      <!-- <div
+        class="px-4 py-3 border-b border-zinc-800 sticky top-0 bg-zinc-950/80 backdrop-blur z-20"
       >
         <div class="flex items-center justify-between">
-          <div class="text-lg font-semibold">RAG Chat</div>
+          <div class="text-lg font-semibold"></div> -->
 
-          <!-- 우측 상태/토글 -->
-          <div class="relative text-xs text-zinc-400 docs-toggle-area">
-            <button
-              v-if="hasData"
-              type="button"
-              class="px-2 py-1 rounded-md hover:bg-zinc-800/60"
-              @click="docsOpen = !docsOpen"
-            >
-              문서 {{ docs.length }}개 ▾
-            </button>
-            <template v-else>
-              <span v-if="progress >= 100" class="text-emerald-400"
-                >임베딩 완료</span
+      <!-- 우측 상태/토글 -->
+      <!-- <div class="relative text-xs text-zinc-400 docs-toggle-area"> -->
+      <!-- 문서가 있을 때 -->
+      <!-- <div v-if="hasData" class="inline-flex items-center gap-2"> -->
+      <!-- <button
+                type="button"
+                class="inline-flex items-center px-2 py-1 rounded-md hover:bg-zinc-800/60"
+                @click="toggleDocs"
               >
-              <span v-else-if="jobId">임베딩 진행 중… {{ progress }}%</span>
-              <span v-else>문서 업로드 대기</span>
-            </template>
+                문서 {{ docs.length }}개 ▾
+              </button> -->
 
-            <!-- 토글 목록 -->
-            <div
+      <!-- <button
+                type="button"
+                class="inline-flex items-center justify-center w-7 h-7 rounded-md hover:bg-zinc-800/60"
+                @click.stop="refreshDocs"
+                title="문서 목록 새로고침"
+              >
+                <Icon name="mynaui:refresh-alt" class="w-4 h-4" />
+              </button>
+            </div> -->
+
+      <!-- 문서가 없을 때 -->
+      <!-- <div v-else class="inline-flex items-center gap-2">
+              <span class="text-zinc-400 leading-none">문서가 없습니다</span>
+              <button
+                type="button"
+                class="inline-flex items-center justify-center w-7 h-7 rounded-md hover:bg-zinc-800/60"
+                @click="refreshDocs"
+                title="문서 목록 새로고침"
+              >
+                <Icon name="mynaui:refresh-alt" class="w-4 h-4" />
+              </button>
+            </div> -->
+      <!-- 토글 목록 -->
+      <!-- <div
               v-if="docsOpen"
-              class="absolute right-0 mt-2 w-[26rem] max-h-[11.2rem] overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/95 shadow-lg p-2 scrollbar-zinc"
+              class="absolute right-0 mt-2 w-[26rem] max-h-[11.2rem] overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/95 shadow-lg p-2 scrollbar-zinc z-30"
             >
               <div
                 v-if="!docs.length"
@@ -53,20 +88,15 @@
                   </div>
 
                   <div class="flex items-center gap-2 shrink-0">
-                    <!-- 기존 문서 목록 li 내부 버튼 영역 옆에 추가 -->
                     <button
                       type="button"
                       class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
                       @click="goChunks(d)"
                       title="이 문서의 모든 청크 보기"
                     >
-                      <Icon
-                        name="material-symbols:pageview"
-                        class="w-4 h-4"
-                      ></Icon>
+                      <Icon name="material-symbols:pageview" class="w-4 h-4" />
                     </button>
 
-                    <!-- 원문 열기: 항상 변환된 PDF 뷰어로 연다 -->
                     <button
                       type="button"
                       class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
@@ -78,7 +108,7 @@
                         class="w-4 h-4"
                       />
                     </button>
-                    <!-- 원본 다운로드: 원본이 있을 때만 노출 -->
+
                     <button
                       v-if="d.original_key && !d.is_pdf_original"
                       type="button"
@@ -91,39 +121,30 @@
                         class="w-4 h-4"
                       />
                     </button>
-                  </div>
-                </li>
+                  </div> -->
+      <!-- </li>
               </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-
+            </div> -->
+      <!-- </div>  -->
+      <!-- </div>
+      </div> -->
+      <div
+        class="flex min-h-0 flex-col"
+        style="width: 30%; background: #ccc"
+      ></div>
       <!-- Body: only chat scrolls -->
       <div class="flex-1 min-h-0 flex flex-col">
+        <!-- 메시지가 없을 때 환영 메시지 표시 -->
         <div
           v-if="messages.length === 0"
           class="flex-1 min-h-0 grid place-items-center p-6"
         >
-          <div class="w-full max-w-xl space-y-6">
-            <RagUploadCenter
-              :disabled="uploading"
-              @select="onUpload"
-              :title="hasData ? '문서 추가 업로드' : '문서 업로드'"
-              :description="
-                hasData
-                  ? '추가로 문서를 업로드하여 지식을 확장합니다.'
-                  : 'PDF / DOCX / HWPX 파일을 선택하면 임베딩을 시작합니다.'
-              "
-              :button-text="hasData ? '추가로 업로드 하기' : '업로드 하기'"
-            />
-            <div v-if="jobId" class="pt-2">
-              <RagProgressBar :value="progress" />
-              <div class="text-xs text-zinc-500 mt-1">
-                임베딩이 100%가 되면 질문을 시작할 수 있어요.
-              </div>
+          <!-- <div class="w-full max-w-xl space-y-6 text-center">
+            <div class="text-3xl font-bold mb-4">한국원자력통제기술원</div>
+            <div class="text-lg font-semibold text-slate-600 mb-6">
+              키나기 Chat에 오신 것을 환영합니다
             </div>
-          </div>
+          </div> -->
         </div>
 
         <!-- Chat list -->
@@ -136,7 +157,6 @@
           <RagMessageBubble v-for="m in messages" :key="m.id" :msg="m" />
           <!-- 답변 생성 중 로딩 버블 -->
           <div v-if="answering" class="flex">
-            <!-- 어시스턴트 버블처럼 좌측 정렬 -->
             <div
               class="max-w-[80%] rounded-2xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 inline-flex items-center gap-2"
             >
@@ -148,18 +168,12 @@
           </div>
           <div ref="endRef" />
         </div>
-
-        <div
-          v-if="jobId && progress < 100"
-          class="shrink-0 px-4 py-2 bg-zinc-900 border-t border-zinc-800"
-        >
-          <RagProgressBar :value="progress" label="인덱싱 진행률" />
-        </div>
       </div>
 
       <!-- Input -->
       <div class="shrink-0">
         <RagInputBar
+          ref="inputBarRef"
           :disabled="!canChat || answering"
           @send="onSend"
           @height-changed="onInputResize"
@@ -186,22 +200,11 @@ import RagMessageBubble from "@/components/Chat/MessageBubble.vue";
 import RagInputBar from "@/components/Chat/InputBar.vue";
 import { generateId } from "~/utils/uuid";
 import { formatKST } from "~/utils/datetime";
-
-const {
-  uploadDocument, // 또는 uploadAndResolve 사용 가능
-  getJobProgress,
-  sendChat,
-  listDocs,
-  getStatus,
-  getViewUrl,
-  getDownloadUrl,
-} = useApi();
+import bgPng from "~/assets/img/ic_floating_chat.png";
+const { sendChat, listDocs, getStatus, getViewUrl, getDownloadUrl } = useApi();
 
 const messages = ref<ChatMessage[]>([]);
-const uploading = ref(false);
-const jobId = ref<string | null>(null);
-const progress = ref(0);
-const blocking = ref(true);
+const bgImage = ref(bgPng);
 
 // ===== 문서 목록/상태 =====
 const hasData = ref(false);
@@ -210,23 +213,43 @@ const docs = ref<DocItem[]>([]);
 
 const router = useRouter();
 
+// InputBar ref 추가
+const inputBarRef = ref<InstanceType<typeof RagInputBar> | null>(null);
+
 function goChunks(d: DocItem) {
-  docsOpen.value = false; // 토글 닫기
+  docsOpen.value = false;
   router.push(`/chunks/${encodeURIComponent(d.doc_id)}`);
 }
 
 async function refreshStatusAndDocs() {
   try {
     const s = await getStatus();
-    hasData.value = !!s.has_data;
+    hasData.value = s.has_data;
   } catch {
     hasData.value = false;
   }
   try {
-    docs.value = await listDocs();
+    const newDocs = await listDocs();
+    docs.value = newDocs;
+    hasData.value = newDocs.length > 0;
   } catch {
     docs.value = [];
+    hasData.value = false;
   }
+}
+
+// 새로고침 버튼용
+async function refreshDocs() {
+  await refreshStatusAndDocs();
+}
+
+// 토글 버튼용
+async function toggleDocs() {
+  if (!docsOpen.value) {
+    // 열 때마다 최신 목록 갱신
+    await refreshStatusAndDocs();
+  }
+  docsOpen.value = !docsOpen.value;
 }
 
 onMounted(() => {
@@ -238,7 +261,6 @@ onBeforeUnmount(() => {
   window.removeEventListener("click", onGlobalClick);
 });
 
-// 외부 클릭 시 토글 닫기
 function onGlobalClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
   if (!target.closest(".docs-toggle-area")) docsOpen.value = false;
@@ -257,24 +279,6 @@ function scrollToEnd(behavior: ScrollBehavior = "smooth") {
 
 watch(messages, () => scrollToEnd("smooth"));
 
-// 업로드 → 진행률 폴링 → 완료 시 목록 갱신
-watch(jobId, (val) => {
-  if (!val) return;
-  const timer = setInterval(async () => {
-    try {
-      const s = await getJobProgress(val);
-      progress.value = s.progress ?? 0;
-      blocking.value = (s.progress ?? 0) < 100;
-      if (progress.value >= 100) {
-        clearInterval(timer);
-        await refreshStatusAndDocs();
-      }
-    } catch (e) {
-      console.warn("progress error", e);
-    }
-  }, 1500);
-});
-
 function openDoc(d: DocItem) {
   const key = d.pdf_key || d.object_key || "";
   if (!key) return;
@@ -291,25 +295,18 @@ function downloadOriginal(d: DocItem) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-const onUpload = async (file: File) => {
-  uploading.value = true;
-  progress.value = 0;
-  try {
-    const { job_id } = await uploadDocument(file);
-    jobId.value = job_id;
-  } catch (e: any) {
-    alert(`업로드 실패: ${e?.message || e}`);
-  } finally {
-    uploading.value = false;
-  }
-};
-
-const canChat = computed(
-  () => hasData.value || (!blocking.value && progress.value >= 100)
-);
+const canChat = computed(() => hasData.value);
 
 const answering = ref(false);
-watch(answering, () => scrollToEnd("smooth"));
+watch(answering, async (isAnswering) => {
+  scrollToEnd("smooth");
+
+  // 답변이 완료되면(false로 바뀌면) 입력창에 자동 포커스
+  if (!isAnswering) {
+    await nextTick();
+    inputBarRef.value?.focus();
+  }
+});
 
 const onSend = async (query: string) => {
   const userMsg: ChatMessage = {
@@ -353,3 +350,42 @@ function onInputResize(_h: number) {
   scrollToEnd("auto");
 }
 </script>
+<style scoped>
+.chat_ico {
+  width: 80px;
+  height: 80px;
+  background: #fff;
+  border: 1px solid #ccc;
+  margin-right: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat_ico img {
+  width: 60%;
+}
+.chat_input_area {
+  position: relative;
+  display: flex;
+}
+.chat_input_area textarea {
+  width: 100%;
+  border: 2px solid #4263f1;
+  border-radius: 2rem;
+  line-height: 3rem;
+  padding: 0 1rem;
+}
+.chat_input_area button {
+  position: absolute;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+  background: #4263f1;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+</style>

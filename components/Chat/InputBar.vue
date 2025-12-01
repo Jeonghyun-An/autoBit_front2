@@ -1,10 +1,10 @@
 <template>
-  <div class="border-t border-zinc-800 bg-zinc-950 px-3 py-2">
-    <div class="max-w-5xl mx-auto">
-      <div class="flex items-end gap-2">
+  <div class="px-3 py-2">
+    <div class="mx-auto">
+      <div class="chat_input_area">
         <textarea
           ref="taRef"
-          class="flex-1 resize-none overflow-y-auto rounded-xl bg-zinc-900 text-zinc-100 placeholder-zinc-500 p-3 pr-2 focus:outline-none focus:ring-2 focus:ring-zinc-200 scrollbar-zinc"
+          class="flex-1 resize-none overflow-y-auto rounded-xl text-zinc-900 placeholder-zinc-500 p-3 pr-2 focus:outline-none focus:ring-2 focus:ring-blue-900 scrollbar-zinc"
           rows="1"
           style="scrollbar-gutter: stable"
           :placeholder="
@@ -101,3 +101,28 @@ onBeforeUnmount(() => {
   window.removeEventListener("resize", onResize);
 });
 </script>
+<style scoped>
+.chat_input_area {
+  position: relative;
+  display: flex;
+}
+.chat_input_area textarea {
+  width: 100%;
+  border: 2px solid #4263f1;
+  border-radius: 2rem;
+  line-height: 3rem;
+  padding: 0 1rem;
+}
+.chat_input_area button {
+  position: absolute;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+  background: #4263f1;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+</style>

@@ -1,11 +1,16 @@
 <template>
-  <div :class="['flex w-full', isUser ? 'justify-end' : 'justify-start']">
+  <div :class="['flex w-full gap-3', isUser ? 'justify-end' : 'justify-start']">
+    <!-- 아이콘 영역: assistant일 때만 표시 -->
+    <div v-if="!isUser" class="chat_ico shrink-[-2]">
+      <img :src="bgImage" alt="Assistant Icon" />
+    </div>
+
     <div
       :class="[
         'max-w-[82%] rounded-2xl p-4 shadow min-w-0',
         isUser
-          ? 'bg-indigo-500 text-white rounded-br-sm'
-          : 'bg-zinc-900 text-zinc-100 rounded-bl-sm border border-zinc-800',
+          ? 'bg-zinc-300 text-gray-950 rounded-br-sm shadow-md border border-zinc-400'
+          : 'bg-slate-900 text-gray-50 rounded-tl-sm border',
       ]"
     >
       <!-- 본문: 사용자 = 그대로, 어시스턴트 = Markdown 렌더 -->
@@ -46,10 +51,12 @@ import { ref, computed } from "vue";
 import RagSourceList from "./SourceList.vue";
 import type { ChatMessage } from "@/composables/useApi";
 import { renderMarkdown } from "@/composables/useMarkdown";
+import bgPng from "@/assets/img/ic_floating_chat.png";
 
 const props = defineProps<{ msg: ChatMessage }>();
 const isUser = computed(() => props.msg.role === "user");
 const open = ref(false);
+const bgImage = ref(bgPng);
 
 // assistant 메시지용 Markdown HTML
 const html = computed(() =>
@@ -94,5 +101,33 @@ function timeLabel(d = new Date()) {
 .prose img {
   max-width: 100%;
   height: auto;
+}
+
+/* 챗봇 아이콘 스타일 */
+.chat_ico {
+  width: 48px;
+  height: 48px;
+  background: #ffffff;
+  border: 1px solid #d4d4d8; /* zinc-300 */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 8px;
+}
+
+.chat_ico img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 다크 모드에서 아이콘 배경 조정 */
+@media (prefers-color-scheme: dark) {
+  .chat_ico {
+    background: #27272a; /* zinc-800 */
+    border-color: #3f3f46; /* zinc-700 */
+  }
 }
 </style>

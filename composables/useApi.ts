@@ -1,3 +1,5 @@
+import { get } from "http";
+
 // composables/useApi.ts
 export type SourceMeta = {
   id: string;
@@ -52,22 +54,34 @@ export function useApi() {
         (typeof s?.metadata?.text === "string" && s.metadata.text) ||
         "";
       const cleaned = textCandidate.replace(/^META:.*?\n/, "");
+
+      // 섹션은 section 메타로만 보관 (title로 쓰지 않음)
+      const section =
+        s.section ?? s?.metadata?.section ?? s?.metadata?.title ?? undefined;
+
       return {
         id: String(s.id ?? i + 1),
-        title:
-          s.title ?? s.section ?? s?.metadata?.title ?? s?.metadata?.section,
+        // title은 일단 비워두고, 아래 sendChat에서 docIndex로 채움
+        title: undefined,
         doc_id: s.doc_id ?? s?.metadata?.doc_id,
         page: s.page ?? s.page_num ?? s?.metadata?.page,
         score: s.score ?? s.relevance ?? s.similarity,
         chunk_index: s.chunk_index ?? s.idx ?? s.index,
         snippet: cleaned,
         url: s.url ?? s.link ?? s.source_url,
-        metadata: s.metadata ?? { section: s.section },
+        metadata: { ...(s.metadata ?? {}), section },
       };
     });
   }
 
   // 내부 프록시 스트리밍 URL (PDF 보기)
+
+  // composables/useApi.ts
+
+  function safePdfName(name: string) {
+    const base = (name || "document.pdf").replace(/[\\/:*?"<>|]+/g, "_").trim();
+    return base.toLowerCase().endsWith(".pdf") ? base : `${base}.pdf`;
+  }
 
   function getViewUrl(
     objectKey: string,
@@ -75,13 +89,25 @@ export function useApi() {
     page?: number,
     origKey?: string
   ) {
-    const pathKey = encodeObjectPath(objectKey);
-    const qs = new URLSearchParams();
-    if (name) qs.set("name", name);
-    if (origKey) qs.set("orig", origKey); // ← 원본 키를 뷰어에 넘겨줌
-    const hash = page != null ? `#page=${page}` : "";
-    const q = qs.toString();
-    return `${API}/view/${pathKey}${q ? `?${q}` : ""}${hash}`;
+    // 1) 원하는 표시명 확정
+    const pretty = safePdfName(
+      name || objectKey.split("/").pop() || "document.pdf"
+    );
+
+    // 2) alias 라우트 사용: URL이 예쁜 파일명으로 끝나게
+    const alias = encodeURIComponent(pretty);
+    const src = encodeURIComponent(objectKey);
+    let url = `${API}/view/alias/${alias}?src=${src}`;
+
+    // (선택) 원본키도 전달하고 싶으면 qs에 orig 붙이기
+    if (origKey) {
+      url += `&orig=${encodeURIComponent(origKey)}`;
+    }
+
+    // 페이지 점프는 해시로 유지
+    if (page != null) url += `#page=${page}`;
+
+    return url;
   }
 
   // 내부 프록시 다운로드 URL (원본 다운로드)
@@ -209,6 +235,24 @@ export function useApi() {
       name: it.original_name || it.title || `${docId}`,
     };
   }
+  /**
+   * 문서 ID로 MinIO에 저장된 meta.json 조회
+   * - 예: uploaded/__meta__/{docId}/meta.json
+   */
+  async function getMetaByDocId(docId: string) {
+    try {
+      const res = await fetch(`/api/storage/meta/${docId}`);
+      if (!res.ok) {
+        console.warn(`[useApi] meta.json not found for docId=${docId}`);
+        return null;
+      }
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.error(`[useApi] getMetaByDocId failed: ${err}`);
+      return null;
+    }
+  }
 
   // --- low-level API ---
   async function uploadDocument(
@@ -327,21 +371,26 @@ export function useApi() {
 
     // 근거 URL → /viewer?object=...&orig=...&name=...&page=...
     const idx = await ensureDocIndex();
+
     sources = sources.map((s) => {
-      if (!s.url && s.doc_id && idx.has(s.doc_id)) {
-        const info = idx.get(s.doc_id)!;
+      // 1) 제목 보정: meta.title > 인덱스 title > doc_id.pdf
+      const info = s.doc_id ? idx.get(s.doc_id) : undefined;
+      const metaTitle = s?.metadata?.title || s?.metadata?.doc_title;
+      const fixedTitle =
+        metaTitle || info?.title || (s.doc_id ? `${s.doc_id}.pdf` : undefined);
+
+      // 2) URL 없으면 viewer 라우트 생성
+      if (!s.url && s.doc_id && info?.pdf_key) {
         const pdfKey = info.pdf_key;
         const origKey = info.original_key;
-        const name = s.title || info.title || `${s.doc_id}.pdf`;
-
-        const qs = new URLSearchParams({ object: pdfKey, name });
+        const nameForViewer = fixedTitle || `${s.doc_id}.pdf`;
+        const qs = new URLSearchParams({ object: pdfKey, name: nameForViewer });
         if (origKey) qs.set("orig", origKey);
         if (s.page != null) qs.set("page", String(s.page));
-        const viewerRoute = `/viewer?${qs.toString()}`;
-
-        return { ...s, url: viewerRoute };
+        s.url = `/viewer?${qs.toString()}`;
       }
-      return s;
+
+      return { ...s, title: fixedTitle };
     });
 
     return { answer, sources } as { answer: string; sources?: SourceMeta[] };
@@ -414,5 +463,6 @@ export function useApi() {
     getDocChunks,
     getDocInfo,
     getDocChunkCount,
+    getMetaByDocId,
   };
 }

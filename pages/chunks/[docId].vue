@@ -13,9 +13,6 @@
             <div
               class="flex justify-start items-baseline pt-1 text-xs text-zinc-400"
             >
-              <!-- <code class="text-zinc-300 break-all">{{ docId }}</code> -->
-
-              <!-- 총 개수 있으면 "로드 / 전체", 없으면 로드된 개수만 -->
               <div v-if="totalChunks != null">
                 <span class="text-zinc-200">{{ chunks.length }}</span>
                 <span> / {{ totalChunks }}</span>
@@ -77,7 +74,7 @@
             <option value="idx">청크 인덱스</option>
           </select>
           <label class="text-sm text-zinc-400 inline-flex items-center gap-2">
-            <input type="checkbox" v-model="hideMeta" />
+            <input type="checkbox" v-model="hideMeta" class="accent-zinc-300" />
             META 라인 숨기기
           </label>
           <button
@@ -104,29 +101,34 @@
           표시할 청크가 없습니다.
         </div>
 
+        <!-- ✅ Chunk list - 수정된 레이아웃 -->
         <div
           v-for="(c, i) in visibleChunks"
           :key="c.id || `${c.doc_id}-${c.page}-${i}`"
           class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 w-full"
         >
-          <div class="flex items-center justify-between gap-3 flex-wrap w-full">
+          <!-- ✅ 메타 정보와 버튼을 분리하여 항상 오른쪽 정렬 유지 -->
+          <div class="flex items-start justify-between gap-3 w-full mb-2">
+            <!-- 왼쪽: 메타 정보 (hideMeta일 때 투명하게 유지하여 공간 확보) -->
             <div
-              class="text-xs text-zinc-400 flex flex-wrap items-center gap-3"
+              class="text-xs text-zinc-400 flex flex-wrap items-center gap-3 min-h-[1.5rem]"
+              :class="{ 'opacity-0': hideMeta }"
             >
-              <span v-if="c.page != null" class="whitespace-nowrap"
-                >p. {{ c.page }}</span
-              >
-              <span v-if="c.chunk_index != null" class="whitespace-nowrap"
-                >chunk #{{ c.chunk_index }}</span
-              >
+              <span v-if="c.page != null" class="whitespace-nowrap">
+                p. {{ c.page }}
+              </span>
+              <span v-if="c.chunk_index != null" class="whitespace-nowrap">
+                chunk #{{ c.chunk_index }}
+              </span>
               <div
-                v-if="c.section"
+                v-if="shouldShowSection(c)"
                 class="text-xs text-zinc-400 whitespace-pre-wrap break-words"
               >
                 section: {{ c.section }}
               </div>
             </div>
 
+            <!-- 오른쪽: 버튼 (항상 표시) -->
             <div class="flex items-center gap-2 shrink-0">
               <button
                 v-if="pdfKey"
@@ -157,7 +159,8 @@
             </div>
           </div>
 
-          <div class="mt-2 text-sm whitespace-pre-wrap leading-6">
+          <!-- 본문 -->
+          <div class="text-sm whitespace-pre-wrap leading-6">
             {{ renderBody(c) }}
           </div>
         </div>
@@ -188,7 +191,6 @@ type ChunkItem = {
   chunk?: string;
   chunk_index?: number;
   score?: number;
-  // 기타 필드 호환
 };
 
 const route = useRoute();
@@ -212,14 +214,15 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 
 const q = ref("");
-const hideMeta = ref(true);
+const hideMeta = ref(false);
 const sortKey = ref<"page" | "idx">("page");
 
-const limit = ref(300); // 최초 로드 개수
-const step = 200; // 더 불러오기 증가폭
+const limit = ref(300);
+const step = 200;
 
 const canLoadMore = computed(() => chunks.value.length >= limit.value);
 
+// -------- 클립보드 복사 --------
 async function copyTextSafe(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -240,53 +243,40 @@ async function copyTextSafe(text: string) {
     }
   }
 }
-// 복사된 청크들의 상태를 관리하는 Set 사용
 const copiedChunks = ref<Set<string>>(new Set());
-
-// 각 청크의 고유 키 생성 함수
 function getChunkKey(c: ChunkItem): string {
   return `${c.doc_id}:${c.page ?? "x"}:${c.chunk_index ?? "x"}:${c.id ?? "x"}`;
 }
-
-// 특정 청크가 복사되었는지 확인하는 computed
 const isCopied = computed(() => {
   return (chunk: ChunkItem) => copiedChunks.value.has(getChunkKey(chunk));
 });
-
 async function copy(c: ChunkItem) {
   const t = stripMeta(c.chunk || "");
   if (!t) return;
-
   const ok = await copyTextSafe(t);
   if (!ok) {
     alert("클립보드 복사 실패. 브라우저 권한/HTTPS 여부를 확인해주세요.");
     return;
   }
-
   const key = getChunkKey(c);
   copiedChunks.value.add(key);
-
-  // 2초 후 복사 상태 제거
-  setTimeout(() => {
-    copiedChunks.value.delete(key);
-  }, 2000);
+  setTimeout(() => copiedChunks.value.delete(key), 2000);
 }
 
-// <script setup>
+// -------- 카운트 로드 --------
 const totalChunks = ref<number | null>(null);
-
 async function loadCount() {
   try {
     totalChunks.value = await getDocChunkCount(docId);
   } catch {
-    totalChunks.value = null; // 실패 시 표시만 로드된 개수로
+    totalChunks.value = null;
   }
 }
 
+// -------- 마운트 --------
 onMounted(async () => {
   await Promise.all([loadMeta(), loadCount(), loadChunks()]);
 });
-
 watch(
   () => route.params.docId,
   async () => {
@@ -296,21 +286,19 @@ watch(
   }
 );
 
-// 유틸: META 라인 제거
+// -------- 유틸 --------
 function stripMeta(t?: string) {
   const s = t || "";
+  // 본문 META 라인은 항상 제거(요구사항 유지)
   if (s.startsWith("META:")) {
     const nl = s.indexOf("\n");
     return nl >= 0 ? s.slice(nl + 1) : "";
   }
   return s;
 }
-
 function escapeRegExp(x: string) {
   return x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-
-// 유틸: 연속으로 같은 줄이 반복되면 한 번만 남김
 function collapseConsecutiveDuplicates(text: string) {
   const lines = text.split(/\r?\n/);
   const out: string[] = [];
@@ -322,11 +310,10 @@ function collapseConsecutiveDuplicates(text: string) {
   return out.join("\n");
 }
 
-// 섹션과 겹치는 본문 첫머리 제거(대괄호/접두어 변형도 처리)
+// 섹션과 겹치는 본문 첫머리 제거(표시용)
 function removeSectionEcho(section: string, body: string) {
   const sec = (section || "").trim();
   if (!sec) return body;
-
   let b = body.trimStart();
   const pats = [
     new RegExp("^" + escapeRegExp(sec) + "\\s*\\n?", "u"),
@@ -340,14 +327,39 @@ function removeSectionEcho(section: string, body: string) {
   return b;
 }
 
-// 검색어 하이라이트를 안 쓴다면 displayText 대체로 renderBody 사용
+// 본문 렌더(요구사항 유지)
 function renderBody(c: { section?: string; chunk?: string }) {
   let body = stripMeta(c.chunk || "");
-  body = removeSectionEcho(c.section || "", body);
+  // body = removeSectionEcho(c.section || "", body);
   body = collapseConsecutiveDuplicates(body);
   return body;
 }
 
+// 섹션이 본문 "첫머리"에 사실상 겹치는지 판단(표시용 판단)
+function sectionAppearsAtStart(sec: string, body: string) {
+  const s = (sec || "").trim();
+  if (!s) return false;
+  const raw = body.trimStart();
+  const firstLine = (raw.split(/\r?\n/)[0] || "").trim();
+
+  // 첫 줄이 동일하거나, 대괄호/접두어 형태로 섹션과 같으면 중복으로 간주
+  if (firstLine === s) return true;
+  const pats = [
+    new RegExp("^\\[[-+•*\\s]*" + escapeRegExp(s) + "\\s*\\]$", "u"),
+    new RegExp("^(section|섹션)\\s*[:：]\\s*" + escapeRegExp(s) + "$", "iu"),
+  ];
+  return pats.some((p) => p.test(firstLine));
+}
+
+// 메타 섹션을 표시할지 최종 판단
+function shouldShowSection(c: { section?: string; chunk?: string }) {
+  if (!c.section) return false; // 섹션 없음
+  // 메타 라인은 외부에서 v-show="!hideMeta"로 통제됨 (여기선 중복만 판단)
+  const rawBody = stripMeta(c.chunk || "");
+  return !sectionAppearsAtStart(c.section, rawBody);
+}
+
+// -------- 데이터 로드 --------
 async function loadMeta() {
   const info = await getDocInfo(docId);
   if (info) {
@@ -359,12 +371,10 @@ async function loadMeta() {
     title.value = docId;
   }
 }
-
 async function loadChunks() {
   loading.value = true;
   error.value = null;
   try {
-    // full=true → 서버에서 자르지 않도록
     const items = await getDocChunks(docId, limit.value, true);
     chunks.value = (Array.isArray(items) ? items : []).map(
       (it: any, i: number) => ({
@@ -384,6 +394,7 @@ async function loadChunks() {
   }
 }
 
+// -------- 정렬/필터 --------
 function sortFn(a: ChunkItem, b: ChunkItem) {
   const pa = a.page ?? Number.MAX_SAFE_INTEGER;
   const pb = b.page ?? Number.MAX_SAFE_INTEGER;
@@ -393,7 +404,6 @@ function sortFn(a: ChunkItem, b: ChunkItem) {
   if (ia !== ib) return ia - ib;
   return String(a.id ?? "").localeCompare(String(b.id ?? ""));
 }
-
 const visibleChunks = computed(() => {
   const qq = q.value.trim().toLowerCase();
   const arr = chunks.value.slice();
@@ -406,7 +416,6 @@ const visibleChunks = computed(() => {
     : arr;
 
   if (sortKey.value === "idx") {
-    // 인덱스 → 페이지 → id
     return out.slice().sort((a, b) => {
       const ia = a.chunk_index ?? Number.MAX_SAFE_INTEGER;
       const ib = b.chunk_index ?? Number.MAX_SAFE_INTEGER;
@@ -414,40 +423,35 @@ const visibleChunks = computed(() => {
       return sortFn(a, b);
     });
   }
-  // 기본: 페이지 → 인덱스 → id
   return out.slice().sort(sortFn);
 });
 
+// -------- 액션 --------
 function openPdf(page?: number) {
   if (!pdfKey.value) return;
   const name = title.value || `${docId}.pdf`;
   const url = getViewUrl(pdfKey.value, name, page ?? undefined, origKey.value);
   window.open(url, "_blank", "noopener,noreferrer");
 }
-
 function downloadOriginal() {
   if (!origKey.value) return;
   const name = origName.value || title.value || docId;
   const url = getDownloadUrl(origKey.value, name);
   window.open(url, "_blank", "noopener,noreferrer");
 }
-
 async function reload() {
   await Promise.all([loadMeta(), loadChunks()]);
 }
-
 function loadMore() {
   limit.value += step;
   loadChunks();
 }
-
 onMounted(async () => {
   await reload();
 });
 watch(
   () => route.params.docId,
   async () => {
-    // 다른 문서로 이동했을 때 초기화
     chunks.value = [];
     limit.value = 300;
     await reload();
