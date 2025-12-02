@@ -17,8 +17,108 @@
         />
       </div>
     </div> -->
+    <!-- 🔹 왼쪽 문서 목록 영역 (30%) -->
+    <div
+      class="w-[30%] min-w-[260px] max-w-sm border-r border-zinc-200 bg-white flex flex-col"
+    >
+      <!-- 선택된 문서 태그 + 검색창 -->
+      <div
+        class="p-3 overflow-y-auto border-b border-zinc-200 bg-zinc-50 scrollbar-zinc"
+        style="scrollbar-gutter: stable"
+      >
+        <!-- 선택된 문서 태그 -->
+        <div v-if="selectedDocs.length" class="mb-2 flex flex-wrap gap-2">
+          <div
+            v-for="d in selectedDocs"
+            :key="d.doc_id"
+            class="inline-flex items-center max-w-full px-3 py-1 rounded-full bg-zinc-900/5 border border-zinc-300 text-xs"
+          >
+            <span class="truncate max-w-[140px]">
+              {{ d.title || d.doc_id }}
+            </span>
+            <button
+              type="button"
+              class="ml-1 text-zinc-500 hover:text-zinc-800"
+              @click.stop="toggleSelect(d.doc_id)"
+              title="선택 해제"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
 
-    <!-- ✅ 기존 내용 그대로 -->
+        <!-- 검색창 -->
+        <div class="relative">
+          <Icon
+            name="lucide:search"
+            class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+          />
+          <input
+            v-model="docSearch"
+            type="text"
+            placeholder="문서 검색..."
+            class="w-full pl-8 pr-3 py-2 rounded-full border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900"
+          />
+        </div>
+      </div>
+
+      <!-- 문서 리스트 -->
+      <div
+        class="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-zinc"
+        style="scrollbar-gutter: stable"
+      >
+        <div
+          v-if="!filteredDocs.length"
+          class="text-xs text-zinc-400 text-center py-4"
+        >
+          표시할 문서가 없습니다.
+        </div>
+
+        <div
+          v-for="d in filteredDocs"
+          :key="d.doc_id"
+          class="rounded-lg border border-transparent hover:border-zinc-300 hover:bg-zinc-50 px-2 py-1.5 flex items-center gap-2 cursor-pointer"
+        >
+          <!-- 체크박스: 선택만 담당 (라우팅 X) -->
+          <input
+            type="checkbox"
+            class="accent-slate-900"
+            :value="d.doc_id"
+            v-model="selectedDocIds"
+            @click.stop
+          />
+
+          <!-- 제목/정보: 클릭 시 청크 뷰 페이지로 이동 -->
+          <div class="flex-1 min-w-0" @click="goChunks(d)">
+            <div class="text-xs font-medium truncate">
+              {{ d.title || d.doc_id }}
+            </div>
+            <div
+              v-if="d.uploaded_at"
+              class="text-[11px] text-zinc-500 truncate"
+            >
+              {{ formatKST(d.uploaded_at) }}
+            </div>
+          </div>
+
+          <!-- PDF 아이콘 (옵션) -->
+          <button
+            v-if="d.pdf_key"
+            type="button"
+            class="shrink-0 text-zinc-400 hover:text-zinc-700"
+            @click.stop="openDoc(d)"
+            title="PDF로 보기"
+          >
+            <Icon
+              name="material-symbols:picture-as-pdf-rounded"
+              class="w-4 h-4"
+            />
+          </button>
+        </div>
+      </div>
+    </div>
+    <!--  오른쪽 채팅 영역 (70%) -->
+    <!--  기존 내용 그대로 -->
     <div class="flex-1 min-h-0 max-w-5xl mx-auto flex flex-col relative z-10">
       <!-- Header -->
       <!-- <div
@@ -95,6 +195,7 @@
                       title="이 문서의 모든 청크 보기"
                     >
                       <Icon name="material-symbols:pageview" class="w-4 h-4" />
+
                     </button>
 
                     <button
@@ -215,6 +316,35 @@ const router = useRouter();
 
 // InputBar ref 추가
 const inputBarRef = ref<InstanceType<typeof RagInputBar> | null>(null);
+
+// 문서 검색 & 선택 상태
+const docSearch = ref("");
+const selectedDocIds = ref<string[]>([]);
+
+// 검색된 문서 리스트
+const filteredDocs = computed(() => {
+  const q = docSearch.value.trim().toLowerCase();
+  if (!q) return docs.value;
+  return docs.value.filter((d) => {
+    const name = (d.title || d.doc_id || "").toLowerCase();
+    return name.includes(q);
+  });
+});
+
+// 선택된 문서 객체 리스트 (태그용)
+const selectedDocs = computed(() =>
+  docs.value.filter((d) => selectedDocIds.value.includes(d.doc_id))
+);
+
+// 태그에서 X 눌렀을 때
+function toggleSelect(docId: string) {
+  const idx = selectedDocIds.value.indexOf(docId);
+  if (idx >= 0) {
+    selectedDocIds.value.splice(idx, 1);
+  } else {
+    selectedDocIds.value.push(docId);
+  }
+}
 
 function goChunks(d: DocItem) {
   docsOpen.value = false;
