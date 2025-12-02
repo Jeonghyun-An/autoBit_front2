@@ -6,7 +6,7 @@
 .scrollbar-zinc {
   /* Firefox */
   scrollbar-width: thin;
-  scrollbar-color: #2d2d35 transparent; /* thumb, track */
+  scrollbar-color: #e0e0e0 transparent; /* thumb, track */
 }
 
 /* WebKit (Chromium, Safari, Edge) */
@@ -18,7 +18,7 @@
   background: transparent; /* track 숨김 효과 */
 }
 .scrollbar-zinc::-webkit-scrollbar-thumb {
-  background-color: #4b4b4e; /* zinc-600 */
+  background-color: #e0e0e0;
   border-radius: 9999px;
   border: 3px solid transparent; /* thumb 테두리로 여백 느낌 */
   background-clip: padding-box;
@@ -35,5 +35,5 @@
   display: block;
   width: 10px;
   height: 10px;
-  background: #19191a; /* zinc-700 */
+  background: #e0e0e0;
 }
