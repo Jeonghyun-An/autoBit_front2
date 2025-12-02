@@ -1,7 +1,7 @@
 <template>
   <div :class="['flex w-full gap-3', isUser ? 'justify-end' : 'justify-start']">
     <!-- 아이콘 영역: assistant일 때만 표시 -->
-    <div v-if="!isUser" class="chat_ico shrink-[-2]">
+    <div v-if="!isUser" class="chat_ico shrink-5">
       <img :src="bgImage" alt="Assistant Icon" />
     </div>
 
@@ -9,8 +9,8 @@
       :class="[
         'max-w-[82%] rounded-2xl p-4 shadow min-w-0',
         isUser
-          ? 'bg-zinc-300 text-gray-950 rounded-br-sm shadow-md border border-zinc-400'
-          : 'bg-slate-900 text-gray-50 rounded-tl-sm border',
+          ? 'bg-zinc-300 text-gray-950 rounded-br-sm shadow-md'
+          : 'bg-slate-900 text-white border',
       ]"
     >
       <!-- 본문: 사용자 = 그대로, 어시스턴트 = Markdown 렌더 -->
@@ -33,7 +33,7 @@
       </div>
       <div v-if="!isUser" class="mt-3 w-full">
         <button
-          class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 whitespace-nowrap"
+          class="text-xs px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 whitespace-nowrap"
           @click="open = !open"
         >
           {{ open ? "근거 닫기" : "근거 보기 (Top-k)" }}
@@ -121,13 +121,5 @@ function timeLabel(d = new Date()) {
   width: 100%;
   height: 100%;
   object-fit: contain;
-}
-
-/* 다크 모드에서 아이콘 배경 조정 */
-@media (prefers-color-scheme: dark) {
-  .chat_ico {
-    background: #27272a; /* zinc-800 */
-    border-color: #3f3f46; /* zinc-700 */
-  }
 }
 </style>
