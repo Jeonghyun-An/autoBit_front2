@@ -22,18 +22,19 @@
       class="w-[30%] min-w-[260px] max-w-sm border-r border-zinc-200 bg-white flex flex-col"
     >
       <!-- 선택된 문서 태그 + 검색창 -->
-      <div
-        class="p-3 overflow-y-auto border-b border-zinc-200 bg-zinc-50 scrollbar-zinc"
-        style="scrollbar-gutter: stable"
-      >
+      <div class="p-3 pt-2 border-b border-zinc-200 bg-zinc-50 flex-shrink-0">
         <!-- 선택된 문서 태그 -->
-        <div v-if="selectedDocs.length" class="mb-2 flex flex-wrap gap-2">
+        <div
+          v-if="selectedDocs.length"
+          class="mb-2 pr-0 max-h-[40vh] overflow-y-auto scrollbar-zinc gap-2"
+          style="scrollbar-gutter: stable"
+        >
           <div
             v-for="d in selectedDocs"
             :key="d.doc_id"
             class="inline-flex items-center max-w-full px-3 py-1 rounded-full bg-zinc-900/5 border border-zinc-300 text-xs"
           >
-            <span class="truncate max-w-[140px]">
+            <span class="truncate max-w-[250px]">
               {{ d.title || d.doc_id }}
             </span>
             <button
@@ -64,7 +65,7 @@
 
       <!-- 문서 리스트 -->
       <div
-        class="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-zinc"
+        class="flex-1 overflow-y-auto p-3 pr-1 space-y-1 scrollbar-zinc"
         style="scrollbar-gutter: stable"
       >
         <div
@@ -82,7 +83,7 @@
           <!-- 체크박스: 선택만 담당 (라우팅 X) -->
           <input
             type="checkbox"
-            class="accent-slate-900"
+            class="doc-checkbox accent-slate-900"
             :value="d.doc_id"
             v-model="selectedDocIds"
             @click.stop
@@ -517,5 +518,9 @@ function onInputResize(_h: number) {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.doc-checkbox {
+  width: 15px;
+  height: 15px;
 }
 </style>
