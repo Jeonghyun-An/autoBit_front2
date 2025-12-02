@@ -6,7 +6,7 @@
         <!-- Textarea 영역 -->
         <textarea
           ref="taRef"
-          class="flex-1 resize-none overflow-y-auto rounded-3xl text-black placeholder-zinc-500 p-3 focus:outline-none focus:ring-2 focus:ring-slate-900 scrollbar-zinc border border-slate-900"
+          class="flex-1 resize-none overflow-y-auto rounded-3xl text-black placeholder-zinc-500 p-3 pr-0 focus:outline-none focus:ring-2 focus:ring-slate-900 scrollbar-zinc border border-slate-900"
           rows="1"
           style="scrollbar-gutter: stable; line-height: 1.5rem"
           :placeholder="
