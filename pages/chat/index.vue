@@ -60,14 +60,13 @@
           </div>
         </div>
       </div>
-      <!-- 🔹 세션 관리 영역 끝 -->
 
       <!-- 선택된 문서 태그 + 검색창 -->
       <div class="p-3 pt-2 border-b border-zinc-200 bg-zinc-50 flex-shrink-0">
         <!-- 선택된 문서 태그 -->
         <div
           v-if="selectedDocs.length"
-          class="mb-2 pr-0 max-h-[40vh] overflow-y-auto scrollbar-zinc gap-2"
+          class="mb-2 pr-0 max-h-[30vh] overflow-y-auto scrollbar-zinc gap-2"
           style="scrollbar-gutter: stable"
         >
           <div
@@ -322,24 +321,19 @@ import bgPng from "~/assets/img/ic_floating_chat.png";
 import KnowledgeMenu from "~/components/Chat/KnowledgeMenu.vue";
 const { sendChat, listDocs, getStatus, getViewUrl, getDownloadUrl } = useApi();
 
-// 🔹 기존 코드 유지 (주석 처리하지 않음)
 const messages = ref<ChatMessage[]>([]);
 const bgImage = ref(bgPng);
 
-// 🔹 새로 추가: ChatStore 초기화
 const chatStore = useChatStore();
 
-// 🔹 새로 추가: 표시용 메시지 (Store 우선, 없으면 기존 messages 사용)
 const displayMessages = computed(() => {
   return chatStore.messages.value.length > 0
     ? chatStore.messages.value
     : messages.value;
 });
 
-// 🔹 새로 추가: 현재 세션 ID
 const currentSessionId = computed(() => chatStore.currentSessionId.value);
 
-// 🔹 새로 추가: 세션 목록 정렬
 const sortedSessions = computed(() => {
   return Array.from(chatStore.sessions.value.values()).sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -454,7 +448,6 @@ function scrollToEnd(behavior: ScrollBehavior = "smooth") {
   });
 }
 
-// 🔹 수정: displayMessages 감시
 watch(displayMessages, () => scrollToEnd("smooth"));
 
 function openDoc(d: DocItem) {
@@ -486,7 +479,6 @@ watch(answering, async (isAnswering) => {
   }
 });
 
-// 🔹 새로 추가: 세션 관리 함수들
 const createNewSession = () => {
   chatStore.createSession();
   scrollToEnd("auto");
@@ -512,15 +504,12 @@ const onSend = async (query: string) => {
     created_at: new Date().toISOString(),
   };
 
-  // 기존 코드 유지
   messages.value = [...messages.value, userMsg];
 
-  // 🔹 새로 추가: Store에도 저장
   chatStore.addMessage(userMsg);
 
   answering.value = true;
   try {
-    // 🔹 수정: displayMessages 사용 (대화 맥락 전달)
     const history = displayMessages.value.map((m) => ({
       role: m.role,
       content: m.content,
@@ -535,10 +524,8 @@ const onSend = async (query: string) => {
       sources,
     };
 
-    // 기존 코드 유지
     messages.value = [...messages.value, botMsg];
 
-    // 🔹 새로 추가: Store에도 저장
     chatStore.addMessage(botMsg);
   } catch (e: any) {
     const botMsg: ChatMessage = {
@@ -550,10 +537,8 @@ const onSend = async (query: string) => {
       created_at: new Date().toISOString(),
     };
 
-    // 기존 코드 유지
     messages.value = [...messages.value, botMsg];
 
-    // 🔹 새로 추가: Store에도 저장
     chatStore.addMessage(botMsg);
   } finally {
     answering.value = false;
