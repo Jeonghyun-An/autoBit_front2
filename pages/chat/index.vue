@@ -107,7 +107,7 @@
       <!-- 문서 리스트 -->
       <div
         class="flex-1 overflow-y-auto p-3 pr-1 space-y-1 scrollbar-zinc"
-        style="scrollbar-gutter: stable"
+        style="scrollbar-gutter: stable; max-height: 30vh"
       >
         <div
           v-if="!filteredDocs.length"
@@ -158,6 +158,7 @@
           </button>
         </div>
       </div>
+      <KnowledgeMenu />
     </div>
     <!--  오른쪽 채팅 영역 (70%) -->
     <!--  기존 내용 그대로 -->
@@ -318,6 +319,7 @@ import RagInputBar from "@/components/Chat/InputBar.vue";
 import { generateId } from "~/utils/uuid";
 import { formatKST } from "~/utils/datetime";
 import bgPng from "~/assets/img/ic_floating_chat.png";
+import KnowledgeMenu from "~/components/Chat/KnowledgeMenu.vue";
 const { sendChat, listDocs, getStatus, getViewUrl, getDownloadUrl } = useApi();
 
 // 🔹 기존 코드 유지 (주석 처리하지 않음)
