@@ -21,6 +21,47 @@
     <div
       class="w-[30%] min-w-[260px] max-w-sm border-r border-zinc-200 bg-white flex flex-col"
     >
+      <!-- 🔹 새로 추가: 세션 관리 영역 -->
+      <div class="p-3 border-b border-zinc-200 bg-zinc-50 flex-shrink-0">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold text-zinc-600">대화 기록</span>
+          <button
+            type="button"
+            class="px-2 py-1 text-xs rounded-md bg-slate-900 text-white hover:bg-slate-800"
+            @click="createNewSession"
+          >
+            + 새 대화
+          </button>
+        </div>
+
+        <!-- 세션 목록 -->
+        <div class="space-y-1 max-h-32 overflow-y-auto scrollbar-zinc">
+          <div
+            v-for="session in sortedSessions"
+            :key="session.id"
+            :class="[
+              'px-2 py-1.5 text-xs rounded cursor-pointer flex items-center justify-between',
+              session.id === currentSessionId
+                ? 'bg-slate-900 text-white'
+                : 'bg-zinc-100 hover:bg-zinc-200',
+            ]"
+            @click="switchToSession(session.id)"
+          >
+            <span class="truncate flex-1">
+              {{ getSessionTitle(session) }}
+            </span>
+            <button
+              type="button"
+              class="ml-2 text-zinc-400 hover:text-zinc-200"
+              @click.stop="confirmDeleteSession(session.id)"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- 🔹 세션 관리 영역 끝 -->
+
       <!-- 선택된 문서 태그 + 검색창 -->
       <div class="p-3 pt-2 border-b border-zinc-200 bg-zinc-50 flex-shrink-0">
         <!-- 선택된 문서 태그 -->
@@ -173,72 +214,44 @@
               >
                 목록이 비어 있습니다.
               </div>
-              <ul v-else class="text-sm divide-y divide-zinc-800">
+
+              <ul v-else class="space-y-1">
                 <li
                   v-for="d in docs"
                   :key="d.doc_id"
-                  class="py-2 px-2 flex items-center justify-between gap-2 min-w-0"
+                  class="px-3 py-2 rounded-lg hover:bg-zinc-800/60 cursor-pointer transition group flex items-center gap-2"
                 >
-                  <div class="truncate min-w-0 gap-1">
-                    <div class="font-medium truncate">
+                  <div class="flex-1 min-w-0" @click="openDoc(d)">
+                    <div class="text-sm font-medium truncate text-zinc-200">
                       {{ d.title || d.doc_id }}
                     </div>
-                    <div v-if="d.uploaded_at" class="text-[11px] text-zinc-500">
+                    <div
+                      v-if="d.uploaded_at"
+                      class="text-xs text-zinc-500 truncate"
+                    >
                       {{ formatKST(d.uploaded_at) }}
                     </div>
                   </div>
-
-                  <div class="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
-                      @click="goChunks(d)"
-                      title="이 문서의 모든 청크 보기"
-                    >
-                      <Icon name="material-symbols:pageview" class="w-4 h-4" />
-
-                    </button>
-
-                    <button
-                      type="button"
-                      class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
-                      @click="openDoc(d)"
-                      title="변환된 PDF 뷰어로 열기"
-                    >
-                      <Icon
-                        name="material-symbols:picture-as-pdf-rounded"
-                        class="w-4 h-4"
-                      />
-                    </button>
-
-                    <button
-                      v-if="d.original_key && !d.is_pdf_original"
-                      type="button"
-                      class="text-xs px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700"
-                      @click="downloadOriginal(d)"
-                      title="MinIO의 실제 원본 파일을 다운로드"
-                    >
-                      <Icon
-                        name="material-symbols:download-rounded"
-                        class="w-4 h-4"
-                      />
-                    </button>
-                  </div> -->
-      <!-- </li>
+                  <button
+                    v-if="d.original_key"
+                    type="button"
+                    class="shrink-0 px-2 py-1 text-xs rounded-md bg-zinc-800/60 hover:bg-zinc-700 text-zinc-300 transition"
+                    @click.stop="downloadOriginal(d)"
+                    title="원본 다운로드"
+                  >
+                    다운로드
+                  </button>
+                </li>
               </ul>
             </div> -->
       <!-- </div>  -->
       <!-- </div>
       </div> -->
-      <div
-        class="flex min-h-0 flex-col"
-        style="width: 30%; background: #ccc"
-      ></div>
       <!-- Body: only chat scrolls -->
       <div class="flex-1 min-h-0 flex flex-col">
         <!-- 메시지가 없을 때 환영 메시지 표시 -->
         <div
-          v-if="messages.length === 0"
+          v-if="displayMessages.length === 0"
           class="flex-1 min-h-0 grid place-items-center p-6"
         >
           <!-- <div class="w-full max-w-xl space-y-6 text-center">
@@ -256,7 +269,7 @@
           class="flex-1 min-h-0 overflow-y-auto space-y-4 p-4 scrollbar-zinc"
           style="scrollbar-gutter: stable"
         >
-          <RagMessageBubble v-for="m in messages" :key="m.id" :msg="m" />
+          <RagMessageBubble v-for="m in displayMessages" :key="m.id" :msg="m" />
           <!-- 답변 생성 중 로딩 버블 -->
           <div v-if="answering" class="flex">
             <div
@@ -295,6 +308,8 @@ import {
   onBeforeUnmount,
 } from "vue";
 import { useApi, type ChatMessage, type DocItem } from "@/composables/useApi";
+// 🔹 새로 추가: ChatStore import
+import { useChatStore } from "@/composables/useChatStore";
 
 import RagUploadCenter from "@/components/Chat/UploadCenter.vue";
 import RagProgressBar from "~/components/Chat/ProgressBar.vue";
@@ -305,8 +320,37 @@ import { formatKST } from "~/utils/datetime";
 import bgPng from "~/assets/img/ic_floating_chat.png";
 const { sendChat, listDocs, getStatus, getViewUrl, getDownloadUrl } = useApi();
 
+// 🔹 기존 코드 유지 (주석 처리하지 않음)
 const messages = ref<ChatMessage[]>([]);
 const bgImage = ref(bgPng);
+
+// 🔹 새로 추가: ChatStore 초기화
+const chatStore = useChatStore();
+
+// 🔹 새로 추가: 표시용 메시지 (Store 우선, 없으면 기존 messages 사용)
+const displayMessages = computed(() => {
+  return chatStore.messages.value.length > 0
+    ? chatStore.messages.value
+    : messages.value;
+});
+
+// 🔹 새로 추가: 현재 세션 ID
+const currentSessionId = computed(() => chatStore.currentSessionId.value);
+
+// 🔹 새로 추가: 세션 목록 정렬
+const sortedSessions = computed(() => {
+  return Array.from(chatStore.sessions.value.values()).sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+});
+
+// 🔹 새로 추가: 세션 제목 생성
+const getSessionTitle = (session: any) => {
+  if (session.messages.length > 0) {
+    return session.messages[0].content.slice(0, 30) + "...";
+  }
+  return "새 대화";
+};
 
 // ===== 문서 목록/상태 =====
 const hasData = ref(false);
@@ -408,7 +452,8 @@ function scrollToEnd(behavior: ScrollBehavior = "smooth") {
   });
 }
 
-watch(messages, () => scrollToEnd("smooth"));
+// 🔹 수정: displayMessages 감시
+watch(displayMessages, () => scrollToEnd("smooth"));
 
 function openDoc(d: DocItem) {
   const key = d.pdf_key || d.object_key || "";
@@ -439,6 +484,24 @@ watch(answering, async (isAnswering) => {
   }
 });
 
+// 🔹 새로 추가: 세션 관리 함수들
+const createNewSession = () => {
+  chatStore.createSession();
+  scrollToEnd("auto");
+};
+
+const switchToSession = (sessionId: string) => {
+  chatStore.switchSession(sessionId);
+  scrollToEnd("auto");
+};
+
+const confirmDeleteSession = (sessionId: string) => {
+  if (confirm("이 대화를 삭제하시겠습니까?")) {
+    chatStore.deleteSession(sessionId);
+  }
+};
+
+// 🔹 수정: 메시지 전송 시 Store에도 저장
 const onSend = async (query: string) => {
   const userMsg: ChatMessage = {
     id: generateId(),
@@ -446,13 +509,21 @@ const onSend = async (query: string) => {
     content: query,
     created_at: new Date().toISOString(),
   };
+
+  // 기존 코드 유지
   messages.value = [...messages.value, userMsg];
+
+  // 🔹 새로 추가: Store에도 저장
+  chatStore.addMessage(userMsg);
+
   answering.value = true;
   try {
-    const history = messages.value.map((m) => ({
+    // 🔹 수정: displayMessages 사용 (대화 맥락 전달)
+    const history = displayMessages.value.map((m) => ({
       role: m.role,
       content: m.content,
     }));
+
     const { answer, sources } = await sendChat(history, query);
     const botMsg: ChatMessage = {
       id: generateId(),
@@ -461,7 +532,12 @@ const onSend = async (query: string) => {
       created_at: new Date().toISOString(),
       sources,
     };
+
+    // 기존 코드 유지
     messages.value = [...messages.value, botMsg];
+
+    // 🔹 새로 추가: Store에도 저장
+    chatStore.addMessage(botMsg);
   } catch (e: any) {
     const botMsg: ChatMessage = {
       id: generateId(),
@@ -471,7 +547,12 @@ const onSend = async (query: string) => {
       }`,
       created_at: new Date().toISOString(),
     };
+
+    // 기존 코드 유지
     messages.value = [...messages.value, botMsg];
+
+    // 🔹 새로 추가: Store에도 저장
+    chatStore.addMessage(botMsg);
   } finally {
     answering.value = false;
   }
