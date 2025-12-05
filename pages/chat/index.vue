@@ -62,7 +62,7 @@
       </div>
 
       <!-- 선택된 문서 태그 + 검색창 -->
-      <div class="p-3 pt-2 border-b border-zinc-200 bg-zinc-50 flex-shrink-0">
+      <div class="p-3 py-2 border-b border-zinc-200 bg-zinc-50 flex-shrink-0">
         <!-- 선택된 문서 태그 -->
         <div
           v-if="selectedDocs.length"
@@ -108,7 +108,7 @@
         </div>
       </div>
 
-      <!-- 🔹 문서 리스트 (페이징) -->
+      <!--  문서 리스트 (페이징) -->
       <div class="flex-shrink-0">
         <div class="p-3 pr-1 space-y-1">
           <div
@@ -161,7 +161,7 @@
           </div>
         </div>
 
-        <!-- 🔹 페이징 컨트롤 -->
+        <!--  페이징 컨트롤 -->
         <div
           v-if="totalPages > 1"
           class="px-3 pb-3 flex items-center justify-center gap-2"
@@ -394,14 +394,33 @@ const selectedDocIds = ref<string[]>([]);
 const currentPage = ref(1);
 const itemsPerPage = 5;
 
-// 검색된 문서 리스트
+// 검색된 문서 리스트 (필터링 + 최신순 정렬)
 const filteredDocs = computed(() => {
   const q = docSearch.value.trim().toLowerCase();
-  if (!q) return docs.value;
-  return docs.value.filter((d) => {
-    const name = (d.title || d.doc_id || "").toLowerCase();
-    return name.includes(q);
+  let result = q
+    ? docs.value.filter((d) => {
+        const name = (d.title || d.doc_id || "").toLowerCase();
+        return name.includes(q);
+      })
+    : docs.value.slice(); // 원본 배열 복사
+
+  //  최신순 정렬 (uploaded_at 기준)
+  result.sort((a, b) => {
+    // uploaded_at이 있으면 날짜 비교
+    if (a.uploaded_at && b.uploaded_at) {
+      return (
+        new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
+      );
+    }
+    // 날짜 없으면 뒤로 보내기
+    if (a.uploaded_at && !b.uploaded_at) return -1;
+    if (!a.uploaded_at && b.uploaded_at) return 1;
+
+    // 둘 다 없으면 제목 알파벳순
+    return (a.title || a.doc_id || "").localeCompare(b.title || b.doc_id || "");
   });
+
+  return result;
 });
 
 const totalPages = computed(() => {
