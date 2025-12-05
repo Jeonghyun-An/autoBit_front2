@@ -38,7 +38,9 @@ export type DocItem = {
 export function useApi() {
   const config = useRuntimeConfig();
   const API = (config.public.apiBase || "/llama").replace(/\/+$/, "");
-
+  //  문서 목록 캐시
+  let _docsCache: { data: DocItem[]; timestamp: number } | null = null;
+  const CACHE_TTL = 5 * 60 * 1000; // 5분
   // --- helpers ---
   // PATH 파라미터(슬래시 보존)용 인코딩
   const encodeObjectPath = (key: string) =>
@@ -121,6 +123,18 @@ export function useApi() {
 
   // 문서 목록: /docs 먼저, 실패 시 /rag/docs 폴백
   async function listDocs(): Promise<DocItem[]> {
+    if (_docsCache) {
+      const age = Date.now() - _docsCache.timestamp;
+      if (age < CACHE_TTL) {
+        console.log(
+          "[CACHE] Using cached docs list (age: " +
+            Math.round(age / 1000) +
+            "s)"
+        );
+        return _docsCache.data;
+      }
+      console.log("[CACHE] Cache expired, fetching new data");
+    }
     const tryFetch = async (path: string) => {
       const r = await fetch(`${API}${path}`);
       if (!r.ok) throw new Error(await r.text());
@@ -147,18 +161,28 @@ export function useApi() {
         is_pdf_original: d.is_pdf_original,
       })) as DocItem[];
     };
-
     try {
-      return await tryFetch(`/rag/docs`);
+      const docs = await tryFetch(`/rag/docs`);
+      _docsCache = {
+        data: docs,
+        timestamp: Date.now(),
+      };
+      console.log(`[CACHE] Cached ${docs.length} documents`);
+
+      return docs;
     } catch {
       try {
-        return await tryFetch(`/docs`);
+        const docs = await tryFetch(`/docs`);
+        _docsCache = {
+          data: docs,
+          timestamp: Date.now(),
+        };
+
+        return docs;
       } catch {
         /* 폴백 계속 진행 */
       }
     }
-
-    // ... (기존 /files 폴백 부분 그대로 유지) ...
     const r = await fetch(
       `${API}/files?prefix=${encodeURIComponent("uploaded/")}`
     );
@@ -177,7 +201,7 @@ export function useApi() {
     const pretty = (fn: string) =>
       /^[0-9a-fA-F]{32}_/.test(fn) ? fn.slice(33) : fn;
 
-    return files.map((k) => {
+    const docs = files.map((k) => {
       const base = k.split("/").pop() || k;
       const doc_id = base.replace(/\.pdf$/i, "");
       return {
@@ -190,6 +214,11 @@ export function useApi() {
         original_key: undefined,
       } as DocItem;
     });
+    _docsCache = {
+      data: docs,
+      timestamp: Date.now(),
+    };
+    return docs;
   }
 
   let _docIndex: Map<
