@@ -338,50 +338,45 @@ import {
   onBeforeUnmount,
 } from "vue";
 import { useApi, type ChatMessage, type DocItem } from "@/composables/useApi";
-// 🔹 새로 추가: ChatStore import
 import { useChatStore } from "@/composables/useChatStore";
+import { useDocsList } from "@/composables/useDocsList"; // 🔹 추가
 
-import RagUploadCenter from "@/components/Chat/UploadCenter.vue";
-import RagProgressBar from "~/components/Chat/ProgressBar.vue";
 import RagMessageBubble from "@/components/Chat/MessageBubble.vue";
 import RagInputBar from "@/components/Chat/InputBar.vue";
+import KnowledgeMenu from "@/components/Chat/KnowledgeMenu.vue";
 import { generateId } from "~/utils/uuid";
 import { formatKST } from "~/utils/datetime";
 import bgPng from "~/assets/img/ic_floating_chat.png";
-import KnowledgeMenu from "~/components/Chat/KnowledgeMenu.vue";
-const { sendChat, listDocs, getStatus, getViewUrl, getDownloadUrl } = useApi();
 
+const { sendChat, getViewUrl, getDownloadUrl } = useApi();
+const { docs, hasData, isLoading, fetchDocs } = useDocsList();
 const messages = ref<ChatMessage[]>([]);
 const bgImage = ref(bgPng);
-
 const chatStore = useChatStore();
-
+// 표시용 메시지 (Store 우선)
 const displayMessages = computed(() => {
   return chatStore.messages.value.length > 0
     ? chatStore.messages.value
     : messages.value;
 });
 
+// 현재 세션 ID
 const currentSessionId = computed(() => chatStore.currentSessionId.value);
 
+// 세션 목록 정렬
 const sortedSessions = computed(() => {
   return Array.from(chatStore.sessions.value.values()).sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   );
 });
 
-//  세션 제목 생성
+// 세션 제목 생성
 const getSessionTitle = (session: any) => {
   if (session.messages.length > 0) {
     return session.messages[0].content.slice(0, 30) + "...";
   }
   return "새 대화";
 };
-
-// ===== 문서 목록/상태 =====
-const hasData = ref(false);
-const docsOpen = ref(false);
-const docs = ref<DocItem[]>([]);
 
 const router = useRouter();
 
@@ -394,7 +389,7 @@ const selectedDocIds = ref<string[]>([]);
 const currentPage = ref(1);
 const itemsPerPage = 5;
 
-// 검색된 문서 리스트 (필터링 + 최신순 정렬)
+// 검색된 문서 리스트 + 최신순 정렬
 const filteredDocs = computed(() => {
   const q = docSearch.value.trim().toLowerCase();
   let result = q
@@ -402,37 +397,36 @@ const filteredDocs = computed(() => {
         const name = (d.title || d.doc_id || "").toLowerCase();
         return name.includes(q);
       })
-    : docs.value.slice(); // 원본 배열 복사
+    : docs.value.slice();
 
-  //  최신순 정렬 (uploaded_at 기준)
+  // 최신순 정렬
   result.sort((a, b) => {
-    // uploaded_at이 있으면 날짜 비교
     if (a.uploaded_at && b.uploaded_at) {
       return (
         new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
       );
     }
-    // 날짜 없으면 뒤로 보내기
     if (a.uploaded_at && !b.uploaded_at) return -1;
     if (!a.uploaded_at && b.uploaded_at) return 1;
-
-    // 둘 다 없으면 제목 알파벳순
     return (a.title || a.doc_id || "").localeCompare(b.title || b.doc_id || "");
   });
 
   return result;
 });
 
+// 전체 페이지 수
 const totalPages = computed(() => {
   return Math.ceil(filteredDocs.value.length / itemsPerPage);
 });
 
+// 현재 페이지의 문서 목록
 const paginatedDocs = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
   const end = start + itemsPerPage;
   return filteredDocs.value.slice(start, end);
 });
 
+// 페이지 이동 함수
 const nextPage = () => {
   if (currentPage.value < totalPages.value) {
     currentPage.value++;
@@ -445,6 +439,7 @@ const prevPage = () => {
   }
 };
 
+// 검색어 변경 시 첫 페이지로 리셋
 watch(docSearch, () => {
   currentPage.value = 1;
 });
@@ -465,43 +460,12 @@ function toggleSelect(docId: string) {
 }
 
 function goChunks(d: DocItem) {
-  docsOpen.value = false;
   router.push(`/chunks/${encodeURIComponent(d.doc_id)}`);
 }
 
-async function refreshStatusAndDocs() {
-  try {
-    const s = await getStatus();
-    hasData.value = s.has_data;
-  } catch {
-    hasData.value = false;
-  }
-  try {
-    const newDocs = await listDocs();
-    docs.value = newDocs;
-    hasData.value = newDocs.length > 0;
-  } catch {
-    docs.value = [];
-    hasData.value = false;
-  }
-}
-
-// 새로고침 버튼용
-async function refreshDocs() {
-  await refreshStatusAndDocs();
-}
-
-// 토글 버튼용
-async function toggleDocs() {
-  if (!docsOpen.value) {
-    // 열 때마다 최신 목록 갱신
-    await refreshStatusAndDocs();
-  }
-  docsOpen.value = !docsOpen.value;
-}
-
+// 🔹 수정: fetchDocs로 변경
 onMounted(() => {
-  refreshStatusAndDocs();
+  fetchDocs(); // 중복 호출 방지 + 캐싱 자동 처리
   window.addEventListener("click", onGlobalClick);
 });
 
@@ -511,7 +475,9 @@ onBeforeUnmount(() => {
 
 function onGlobalClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
-  if (!target.closest(".docs-toggle-area")) docsOpen.value = false;
+  if (!target.closest(".docs-toggle-area")) {
+    // docsOpen 관련 코드가 있다면
+  }
 }
 
 const endRef = ref<HTMLElement | null>(null);
@@ -525,6 +491,7 @@ function scrollToEnd(behavior: ScrollBehavior = "smooth") {
   });
 }
 
+// displayMessages 감시
 watch(displayMessages, () => scrollToEnd("smooth"));
 
 function openDoc(d: DocItem) {
@@ -549,13 +516,13 @@ const answering = ref(false);
 watch(answering, async (isAnswering) => {
   scrollToEnd("smooth");
 
-  // 답변이 완료되면(false로 바뀌면) 입력창에 자동 포커스
   if (!isAnswering) {
     await nextTick();
     inputBarRef.value?.focus();
   }
 });
 
+// 세션 관리 함수들
 const createNewSession = () => {
   chatStore.createSession();
   scrollToEnd("auto");
@@ -572,7 +539,7 @@ const confirmDeleteSession = (sessionId: string) => {
   }
 };
 
-//  메시지 전송 시 Store에도 저장
+// 메시지 전송
 const onSend = async (query: string) => {
   const userMsg: ChatMessage = {
     id: generateId(),
@@ -582,7 +549,6 @@ const onSend = async (query: string) => {
   };
 
   messages.value = [...messages.value, userMsg];
-
   chatStore.addMessage(userMsg);
 
   answering.value = true;
@@ -602,7 +568,6 @@ const onSend = async (query: string) => {
     };
 
     messages.value = [...messages.value, botMsg];
-
     chatStore.addMessage(botMsg);
   } catch (e: any) {
     const botMsg: ChatMessage = {
@@ -615,7 +580,6 @@ const onSend = async (query: string) => {
     };
 
     messages.value = [...messages.value, botMsg];
-
     chatStore.addMessage(botMsg);
   } finally {
     answering.value = false;
