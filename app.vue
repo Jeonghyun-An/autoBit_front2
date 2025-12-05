@@ -1,7 +1,12 @@
 <template>
   <div>
     <NuxtLayout>
-      <NuxtPage />
+      <NuxtPage
+        :keepalive="{
+          include: ['chat', 'chunks'],
+          max: 5,
+        }"
+      />
     </NuxtLayout>
   </div>
 </template>
