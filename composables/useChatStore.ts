@@ -6,12 +6,14 @@ import { generateId } from "@/utils/uuid";
 export interface ChatSession {
   id: string;
   messages: ChatMessage[];
+  selectedDocIds: string[]; // 추가: 선택된 문서 ID 배열
   createdAt: string;
   updatedAt: string;
 }
 
 const STORAGE_KEY = "kinaci_chat_sessions";
 const CURRENT_SESSION_KEY = "kinaci_current_session";
+const isClient = typeof window !== "undefined";
 
 export const useChatStore = () => {
   const currentSessionId = ref<string | null>(null);
@@ -23,9 +25,14 @@ export const useChatStore = () => {
   });
 
   const messages = computed(() => currentSession.value?.messages || []);
+  const selectedDocIds = computed(
+    () => currentSession.value?.selectedDocIds || []
+  );
 
-  // 로컬스토리지에서 복원
+  // 수정: 서버에서는 바로 return 해서 localStorage 접근 안 하게
   const loadFromStorage = () => {
+    if (!isClient) return;
+
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -33,7 +40,10 @@ export const useChatStore = () => {
         sessions.value = new Map(
           Object.entries(parsed).map(([id, session]: [string, any]) => [
             id,
-            session,
+            {
+              ...session,
+              selectedDocIds: session.selectedDocIds || [],
+            },
           ])
         );
       }
@@ -49,6 +59,8 @@ export const useChatStore = () => {
 
   // 로컬스토리지에 저장
   const saveToStorage = () => {
+    if (!isClient) return;
+
     try {
       const obj = Object.fromEntries(sessions.value);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
@@ -60,12 +72,12 @@ export const useChatStore = () => {
       console.error("[ChatStore] Failed to save to storage:", e);
     }
   };
-
   // 새 세션 생성
   const createSession = () => {
     const newSession: ChatSession = {
       id: generateId(),
       messages: [],
+      selectedDocIds: [], // 🔹 초기화
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -92,6 +104,52 @@ export const useChatStore = () => {
     saveToStorage();
   };
 
+  // 🔹 추가: 선택된 문서 설정 (전체 교체)
+  const setSelectedDocs = (docIds: string[]) => {
+    if (!currentSession.value) return;
+
+    currentSession.value.selectedDocIds = [...docIds];
+    currentSession.value.updatedAt = new Date().toISOString();
+    saveToStorage();
+  };
+
+  // 🔹 추가: 선택된 문서 추가
+  const addSelectedDoc = (docId: string) => {
+    if (!currentSession.value) return;
+
+    if (!currentSession.value.selectedDocIds.includes(docId)) {
+      currentSession.value.selectedDocIds.push(docId);
+      currentSession.value.updatedAt = new Date().toISOString();
+      saveToStorage();
+    }
+  };
+
+  // 🔹 추가: 선택된 문서 제거
+  const removeSelectedDoc = (docId: string) => {
+    if (!currentSession.value) return;
+
+    const index = currentSession.value.selectedDocIds.indexOf(docId);
+    if (index > -1) {
+      currentSession.value.selectedDocIds.splice(index, 1);
+      currentSession.value.updatedAt = new Date().toISOString();
+      saveToStorage();
+    }
+  };
+
+  // 🔹 추가: 선택된 문서 토글
+  const toggleSelectedDoc = (docId: string) => {
+    if (!currentSession.value) return;
+
+    const index = currentSession.value.selectedDocIds.indexOf(docId);
+    if (index > -1) {
+      currentSession.value.selectedDocIds.splice(index, 1);
+    } else {
+      currentSession.value.selectedDocIds.push(docId);
+    }
+    currentSession.value.updatedAt = new Date().toISOString();
+    saveToStorage();
+  };
+
   // 세션 삭제
   const deleteSession = (sessionId: string) => {
     sessions.value.delete(sessionId);
@@ -104,7 +162,6 @@ export const useChatStore = () => {
             new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
         );
 
-        // 🔹 수정: sorted 배열에 요소가 있는지 확인
         if (sorted.length > 0 && sorted[0]) {
           currentSessionId.value = sorted[0].id;
         } else {
@@ -131,9 +188,14 @@ export const useChatStore = () => {
     sessions,
     currentSession,
     messages,
+    selectedDocIds, // 🔹 추가
     createSession,
     switchSession,
     addMessage,
     deleteSession,
+    setSelectedDocs, // 🔹 추가
+    addSelectedDoc, // 🔹 추가
+    removeSelectedDoc, // 🔹 추가
+    toggleSelectedDoc, // 🔹 추가
   };
 };
