@@ -24,8 +24,10 @@
           />
         </button>
         <div v-if="expandedThemes.theme1" class="pl-4 pb-2 space-y-1">
+          <!-- 1-1 양자협정 -->
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('1', '1')"
           >
             양자협정
           </div>
@@ -50,34 +52,43 @@
             <div v-if="expandedSubMenus['theme1-iaea']" class="pl-4 space-y-1">
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('1', '2', '1')"
               >
                 CSA
               </div>
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('1', '2', '2')"
               >
                 CSA 보조약정
               </div>
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('1', '2', '3')"
               >
                 AP
               </div>
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('1', '2', '4')"
               >
                 AP 보조약정
               </div>
             </div>
           </div>
 
+          <!-- 1-3 법령 -->
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('1', '3')"
           >
             법령
           </div>
+
+          <!-- 1-4 고시 -->
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('1', '4')"
           >
             고시
           </div>
@@ -104,31 +115,37 @@
         <div v-if="expandedThemes.theme2" class="pl-4 pb-2 space-y-1">
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('2', '1')"
           >
             시설부록(FA)
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('2', '2')"
           >
             설계정보서(DIQ)
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('2', '3')"
           >
             시설 프로파일
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('2', '4')"
           >
             계량관리규정
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('2', '5')"
           >
             시설 계량관리 담당자 연락처
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('2', '6')"
           >
             기타 시설정보
           </div>
@@ -155,21 +172,25 @@
         <div v-if="expandedThemes.theme3" class="pl-4 pb-2 space-y-1">
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('3', '1')"
           >
             사찰매뉴얼
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('3', '2')"
           >
             장비매뉴얼
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('3', '3')"
           >
             IAEA 안전조치 절차서
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('3', '4')"
           >
             사찰관정보/UNLP
           </div>
@@ -194,21 +215,25 @@
             <div v-if="expandedSubMenus['theme3-pub']" class="pl-4 space-y-1">
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('3', '5', '1')"
               >
                 IAEA TECDOC
               </div>
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('3', '5', '2')"
               >
                 IAEA Service Series
               </div>
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('3', '5', '3')"
               >
                 IAEA STR
               </div>
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('3', '5', '4')"
               >
                 기타 IAEA 문서
               </div>
@@ -221,6 +246,7 @@
       <div class="border-b border-zinc-200">
         <div
           class="w-full text-left px-2 py-2 text-xs font-medium hover:bg-zinc-50 cursor-pointer"
+          @click="selectCategory('6')"
         >
           <span>번역자료</span>
         </div>
@@ -261,11 +287,15 @@
                 class="w-3 h-3"
               />
             </button>
-            <div v-if="expandedSubMenus['theme9-in']" class="pl-4 space-y-1">
+            <div
+              v-if="expandedSubMenus['theme9-in']"
+              class="pl-4 space-y-1 max-h-48 overflow-y-auto scrollbar-zinc"
+            >
               <div
-                v-for="year in scYears"
+                v-for="(year, idx) in scYears"
                 :key="`incoming-${year}`"
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('9', '1', String(idx + 1))"
               >
                 {{ year }}
               </div>
@@ -289,11 +319,15 @@
                 class="w-3 h-3"
               />
             </button>
-            <div v-if="expandedSubMenus['theme9-out']" class="pl-4 space-y-1">
+            <div
+              v-if="expandedSubMenus['theme9-out']"
+              class="pl-4 space-y-1 max-h-48 overflow-y-auto scrollbar-zinc"
+            >
               <div
-                v-for="year in scYears"
+                v-for="(year, idx) in scYears"
                 :key="`outgoing-${year}`"
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('9', '2', String(idx + 1))"
               >
                 {{ year }}
               </div>
@@ -322,16 +356,19 @@
         <div v-if="expandedThemes.theme4" class="pl-4 pb-2 space-y-1">
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('4', '1')"
           >
             심검사기준
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('4', '2')"
           >
             심검사지침
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('4', '3')"
           >
             절차서
           </div>
@@ -359,21 +396,25 @@
             >
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('4', '4', '1')"
               >
                 기술보고서
               </div>
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('4', '4', '2')"
               >
                 연구보고서
               </div>
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('4', '4', '3')"
               >
                 귀국보고서
               </div>
               <div
                 class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                @click="selectCategory('4', '4', '4')"
               >
                 용역/위탁보고서
               </div>
@@ -382,11 +423,13 @@
 
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('4', '5')"
           >
             논문
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('4', '6')"
           >
             검사원정보
           </div>
@@ -413,41 +456,49 @@
         <div v-if="expandedThemes.theme8" class="pl-4 pb-2 space-y-1">
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('8', '1')"
           >
             CGEC
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('8', '2')"
           >
             JRM
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('8', '3')"
           >
             IMWG
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('8', '4')"
           >
             IAEA 이사회
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('8', '5')"
           >
             양자협력회의
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('8', '6')"
           >
             SAGSI
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('8', '7')"
           >
             연례안전조치평가회의
           </div>
           <div
             class="text-xs py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+            @click="selectCategory('8', '8')"
           >
             세미나 및 워크샵
           </div>
@@ -458,6 +509,7 @@
       <div class="border-b border-zinc-200">
         <div
           class="w-full text-left px-2 py-2 text-xs font-medium hover:bg-zinc-50 cursor-pointer"
+          @click="selectCategory('7')"
         >
           <span>교육자료</span>
         </div>
@@ -468,6 +520,13 @@
 
 <script setup lang="ts">
 import { reactive } from "vue";
+
+const emit = defineEmits<{
+  (
+    e: "category-selected",
+    filter: { code?: string; detail?: string; sub?: string }
+  ): void;
+}>();
 
 // 아코디언 상태 관리
 const expandedThemes = reactive<Record<string, boolean>>({
@@ -515,5 +574,19 @@ const toggleTheme = (themeKey: string) => {
 // 서브메뉴 토글 함수
 const toggleSubMenu = (menuKey: string) => {
   expandedSubMenus[menuKey] = !expandedSubMenus[menuKey];
+};
+
+/**
+ * 카테고리 선택 시 필터 조건 emit
+ * 부모 컴포넌트에서 useDocsList의 docs를 필터링해서
+ * 선택된 카테고리 기준으로 문서 목록/선택 → doc_ids → /ask 로 연결
+ */
+const selectCategory = (code: string, detail?: string, sub?: string) => {
+  console.log(
+    `[KnowledgeMenu] Category selected: code=${code}, detail=${
+      detail || "N/A"
+    }, sub=${sub || "N/A"}`
+  );
+  emit("category-selected", { code, detail, sub });
 };
 </script>
