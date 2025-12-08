@@ -1,5 +1,3 @@
-import { get } from "http";
-
 // composables/useApi.ts
 export type SourceMeta = {
   id: string;
@@ -270,11 +268,16 @@ export function useApi() {
    */
   async function getMetaByDocId(docId: string) {
     try {
-      const res = await fetch(`/api/storage/meta/${docId}`);
+      // 🔹 API = config.public.apiBase (지금은 "/llama")
+      const res = await fetch(`${API}/rag/meta/${encodeURIComponent(docId)}`);
+
       if (!res.ok) {
-        console.warn(`[useApi] meta.json not found for docId=${docId}`);
+        console.warn(
+          `[useApi] meta.json not found for docId=${docId} (status=${res.status})`
+        );
         return null;
       }
+
       const data = await res.json();
       return data;
     } catch (err) {
@@ -378,12 +381,24 @@ export function useApi() {
   // ---- chat ----
   async function sendChat(
     _history: { role: "user" | "assistant"; content: string }[],
-    query: string
+    query: string,
+    docIds?: string[] // 선택된 문서 ID 배열
   ) {
+    const body: any = {
+      question: query,
+      top_k: 3,
+    };
+
+    // 선택된 문서가 있으면 doc_ids 전달
+    if (docIds && docIds.length > 0) {
+      body.doc_ids = docIds;
+      console.log("[API] Filtering by doc_ids:", docIds);
+    }
+
     const res = await fetch(`${API}/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: query, top_k: 3 }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
@@ -424,7 +439,6 @@ export function useApi() {
 
     return { answer, sources } as { answer: string; sources?: SourceMeta[] };
   }
-
   // doc 메타 조회 (pdf_key / original_key / original_name / title)
   async function getDocInfo(docId: string) {
     const idx = await ensureDocIndex();
