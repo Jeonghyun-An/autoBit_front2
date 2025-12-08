@@ -76,8 +76,6 @@ export function useApi() {
 
   // 내부 프록시 스트리밍 URL (PDF 보기)
 
-  // composables/useApi.ts
-
   function safePdfName(name: string) {
     const base = (name || "document.pdf").replace(/[\\/:*?"<>|]+/g, "_").trim();
     return base.toLowerCase().endsWith(".pdf") ? base : `${base}.pdf`;
@@ -472,12 +470,28 @@ export function useApi() {
     return items || [];
   }
 
-  // composables/useApi.ts
   async function getDocChunkCount(docId: string) {
     const r = await fetch(`${API}/doc/${encodeURIComponent(docId)}`);
     if (!r.ok) throw new Error(await r.text());
     const j = await r.json();
     return typeof j?.chunks === "number" ? j.chunks : null;
+  }
+
+  // ===== 카테고리 필터링 API =====
+  async function listDocsByCode(filter: {
+    code?: string;
+    detail?: string;
+    sub?: string;
+  }): Promise<string[]> {
+    const qs = new URLSearchParams();
+    if (filter.code) qs.set("data_code", filter.code);
+    if (filter.detail) qs.set("data_code_detail", filter.detail);
+    if (filter.sub) qs.set("data_code_detail_sub", filter.sub);
+
+    const res = await fetch(`${API}/rag/docs/by-code?${qs.toString()}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = (await res.json()) as { doc_ids: string[] };
+    return data.doc_ids || [];
   }
 
   return {
@@ -507,5 +521,8 @@ export function useApi() {
     getDocInfo,
     getDocChunkCount,
     getMetaByDocId,
+
+    // category filter
+    listDocsByCode,
   };
 }
