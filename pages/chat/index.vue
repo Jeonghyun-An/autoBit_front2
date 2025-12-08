@@ -21,7 +21,7 @@
     <div
       class="w-[30%] min-w-[260px] max-w-sm border-r border-zinc-200 bg-white flex flex-col"
     >
-      <!-- 🔹 새로 추가: 세션 관리 영역 -->
+      <!-- 🔹 세션 관리 영역 -->
       <div class="p-3 border-b border-zinc-200 bg-zinc-50 flex-shrink-0">
         <div class="flex items-center justify-between mb-2">
           <span class="text-xs font-semibold text-zinc-600">대화 기록</span>
@@ -187,10 +187,12 @@
           </button>
         </div>
       </div>
-      <KnowledgeMenu />
+
+      <!--  문서 카테고리 아코디언 (KnowledgeMenu) -->
+      <KnowledgeMenu @category-selected="onCategorySelected" />
     </div>
+
     <!--  오른쪽 채팅 영역 (70%) -->
-    <!--  기존 내용 그대로 -->
     <div class="flex-1 min-h-0 max-w-5xl mx-auto flex flex-col relative z-10">
       <!-- Header -->
       <!-- <div
@@ -337,22 +339,26 @@ import {
   onMounted,
   onBeforeUnmount,
 } from "vue";
+import { useRouter } from "vue-router";
 import { useApi, type ChatMessage, type DocItem } from "@/composables/useApi";
 import { useChatStore } from "@/composables/useChatStore";
-import { useDocsList } from "@/composables/useDocsList"; // 🔹 추가
+import { useDocsList } from "@/composables/useDocsList";
 
 import RagMessageBubble from "@/components/Chat/MessageBubble.vue";
 import RagInputBar from "@/components/Chat/InputBar.vue";
 import KnowledgeMenu from "@/components/Chat/KnowledgeMenu.vue";
+
 import { generateId } from "~/utils/uuid";
 import { formatKST } from "~/utils/datetime";
 import bgPng from "~/assets/img/ic_floating_chat.png";
 
-const { sendChat, getViewUrl, getDownloadUrl } = useApi();
+const { sendChat, getViewUrl, getDownloadUrl, getMetaByDocId } = useApi();
 const { docs, hasData, isLoading, fetchDocs } = useDocsList();
 const messages = ref<ChatMessage[]>([]);
 const bgImage = ref(bgPng);
 const chatStore = useChatStore();
+const router = useRouter();
+
 // 표시용 메시지 (Store 우선)
 const displayMessages = computed(() => {
   return chatStore.messages.value.length > 0
@@ -378,18 +384,21 @@ const getSessionTitle = (session: any) => {
   return "새 대화";
 };
 
-const router = useRouter();
-
-// InputBar ref 추가
+// InputBar ref
 const inputBarRef = ref<InstanceType<typeof RagInputBar> | null>(null);
 
 // 문서 검색 & 선택 상태
 const docSearch = ref("");
-const selectedDocIds = ref<string[]>([]);
+// 로컬 ref 대신 store랑 바로 연결
+const selectedDocIds = computed({
+  get: () => chatStore.selectedDocIds.value,
+  set: (val: string[]) => chatStore.setSelectedDocs(val),
+});
 const currentPage = ref(1);
 const itemsPerPage = 5;
 
-// 검색된 문서 리스트 + 최신순 정렬
+const docMetaCache = ref<Map<string, any>>(new Map());
+
 const filteredDocs = computed(() => {
   const q = docSearch.value.trim().toLowerCase();
   let result = q
@@ -399,7 +408,6 @@ const filteredDocs = computed(() => {
       })
     : docs.value.slice();
 
-  // 최신순 정렬
   result.sort((a, b) => {
     if (a.uploaded_at && b.uploaded_at) {
       return (
@@ -451,21 +459,99 @@ const selectedDocs = computed(() =>
 
 // 태그에서 X 눌렀을 때
 function toggleSelect(docId: string) {
-  const idx = selectedDocIds.value.indexOf(docId);
-  if (idx >= 0) {
-    selectedDocIds.value.splice(idx, 1);
-  } else {
-    selectedDocIds.value.push(docId);
-  }
+  chatStore.toggleSelectedDoc(docId);
 }
 
 function goChunks(d: DocItem) {
   router.push(`/chunks/${encodeURIComponent(d.doc_id)}`);
 }
 
-// 🔹 수정: fetchDocs로 변경
-onMounted(() => {
-  fetchDocs(); // 중복 호출 방지 + 캐싱 자동 처리
+//  메타데이터 로드 함수 추가
+const loadDocMeta = async (docId: string) => {
+  if (docMetaCache.value.has(docId)) {
+    return docMetaCache.value.get(docId);
+  }
+
+  try {
+    const meta = await getMetaByDocId(docId);
+    if (meta) {
+      docMetaCache.value.set(docId, meta);
+      return meta;
+    }
+  } catch (e) {
+    console.warn(`[Chat] Failed to load meta for ${docId}:`, e);
+  }
+
+  return null;
+};
+
+async function onCategorySelected(filter: {
+  code?: string;
+  detail?: string;
+  sub?: string;
+}) {
+  console.log(`[Chat] Category selected:`, filter);
+
+  const { code, detail, sub } = filter;
+
+  // 모든 문서 메타를 한 번씩(또는 일부) 로딩
+  await Promise.all(docs.value.map((d) => loadDocMeta(d.doc_id)));
+
+  // 필터에 맞는 문서 찾기
+  const matched = docs.value.filter((d) => {
+    const meta = docMetaCache.value.get(d.doc_id);
+    if (!meta) return false;
+
+    const c = meta.data_code != null ? String(meta.data_code) : undefined;
+    const d1 =
+      meta.data_code_detail != null ? String(meta.data_code_detail) : undefined;
+    const d2 =
+      meta.data_code_detail_sub != null
+        ? String(meta.data_code_detail_sub)
+        : undefined;
+
+    const matchCode = !code || c === code;
+    const matchDetail = !detail || d1 === detail;
+    const matchSub = !sub || d2 === sub;
+
+    return matchCode && matchDetail && matchSub;
+  });
+
+  const matchedIds = matched.map((d) => d.doc_id);
+
+  if (!matchedIds.length) {
+    console.log("[Chat] 선택된 카테고리에 해당하는 문서가 없습니다.", filter);
+    return;
+  }
+
+  // ✅ 이미 전부 선택돼 있으면 → 해제, 아니면 → 선택
+  const current = new Set(selectedDocIds.value);
+  const allSelected = matchedIds.every((id) => current.has(id));
+
+  if (allSelected) {
+    matchedIds.forEach((id) => current.delete(id));
+  } else {
+    matchedIds.forEach((id) => current.add(id));
+  }
+
+  selectedDocIds.value = Array.from(current);
+  console.log(
+    `[Chat] Category toggle: ${matchedIds.length} docs, allSelected=${allSelected}`
+  );
+}
+
+onMounted(async () => {
+  await fetchDocs(); // 문서 리스트 먼저
+
+  // 메타는 선택적으로, 실패해도 전체가 죽지 않게
+  try {
+    await Promise.all(
+      docs.value.slice(0, 50).map((d) => loadDocMeta(d.doc_id))
+    );
+  } catch (e) {
+    console.warn("[Chat] 초기 meta preload 실패:", e);
+  }
+
   window.addEventListener("click", onGlobalClick);
 });
 
@@ -558,7 +644,12 @@ const onSend = async (query: string) => {
       content: m.content,
     }));
 
-    const { answer, sources } = await sendChat(history, query);
+    // sendChat 내부에서 body에 doc_ids: selectedDocIds.value 넣도록 구현
+    const { answer, sources } = await sendChat(
+      history,
+      query,
+      selectedDocIds.value.length > 0 ? selectedDocIds.value : undefined
+    );
     const botMsg: ChatMessage = {
       id: generateId(),
       role: "assistant",
@@ -590,6 +681,7 @@ function onInputResize(_h: number) {
   scrollToEnd("auto");
 }
 </script>
+
 <style scoped>
 .chat_ico {
   width: 80px;
