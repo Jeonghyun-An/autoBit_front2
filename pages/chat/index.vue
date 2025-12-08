@@ -479,7 +479,6 @@ function goChunks(d: DocItem) {
   router.push(`/chunks/${encodeURIComponent(d.doc_id)}`);
 }
 
-// 카테고리 선택 핸들러 (완전 교체)
 async function onCategorySelected(filter: {
   code?: string;
   detail?: string;
@@ -487,45 +486,29 @@ async function onCategorySelected(filter: {
 }) {
   console.log("[Chat] Category selected:", filter);
 
-  // "전체" 같은 리셋 케이스
+  // "전체 해제" 용: code/detail/sub 모두 없는 경우 → 필터만 리셋
   if (!filter.code && !filter.detail && !filter.sub) {
-    categoryDocIdSet.value = null;
-    selectedDocIds.value = [];
+    categoryDocIdSet.value = null; // 필터 해제
     currentPage.value = 1;
+    // ✅ 선택 문서(selectedDocIds)는 건드리지 않는다
     return;
   }
 
   try {
-    // 백엔드 API로 필터링된 doc_ids 가져오기
+    // 백엔드에서 해당 카테고리에 속하는 doc_id 리스트만 받아옴
     const docIds = await listDocsByCode({
       code: filter.code,
       detail: filter.detail,
       sub: filter.sub,
     });
 
-    // 중복 제거
     const uniq = Array.from(new Set(docIds));
 
-    //  1) 체크박스 선택 상태 - 토글 방식 유지
-    const current = new Set(selectedDocIds.value);
-    const allSelected = uniq.every((id) => current.has(id));
-
-    if (allSelected) {
-      // 모두 선택되어 있으면 해제
-      uniq.forEach((id) => current.delete(id));
-    } else {
-      // 하나라도 선택 안 되어 있으면 전체 선택
-      uniq.forEach((id) => current.add(id));
-    }
-
-    selectedDocIds.value = Array.from(current);
-
-    //  2) 좌측 리스트 필터링용 set
+    // 여기서는 선택 상태를 건드리지 않고,
+    //    좌측 리스트 필터용 집합만 세팅
     categoryDocIdSet.value = new Set(uniq);
 
-    console.log(
-      `[Chat] Category toggle: ${uniq.length} docs, allSelected=${allSelected}`
-    );
+    console.log(`[Chat] Category filter applied: ${uniq.length} docs`);
 
     currentPage.value = 1;
   } catch (e) {
