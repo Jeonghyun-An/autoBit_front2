@@ -2,7 +2,7 @@
   <div
     class="h-screen w-full bg-zinc-100 text-zinc-950 flex relative overflow-hidden"
   >
-    <!-- 🔹 중앙 워터마크 배경 레이어
+    <!--  중앙 워터마크 배경 레이어
     <div
       v-if="bgImage"
       class="absolute inset-0 z-0 pointer-events-none flex items-center justify-center"
@@ -17,11 +17,11 @@
         />
       </div>
     </div> -->
-    <!-- 🔹 왼쪽 문서 목록 영역 (30%) -->
+    <!--  왼쪽 문서 목록 영역 (30%) -->
     <div
       class="w-[30%] min-w-[260px] max-w-sm border-r border-zinc-200 bg-white flex flex-col"
     >
-      <!-- 🔹 세션 관리 영역 -->
+      <!--  세션 관리 영역 -->
       <div class="p-3 border-b border-zinc-200 bg-zinc-50 flex-shrink-0">
         <div class="flex items-center justify-between mb-2">
           <span class="text-xs font-semibold text-zinc-600">대화 기록</span>
@@ -329,7 +329,6 @@
     </div>
   </div>
 </template>
-
 <script setup lang="ts">
 import {
   ref,
@@ -352,7 +351,8 @@ import { generateId } from "~/utils/uuid";
 import { formatKST } from "~/utils/datetime";
 import bgPng from "~/assets/img/ic_floating_chat.png";
 
-const { sendChat, getViewUrl, getDownloadUrl, getMetaByDocId } = useApi();
+//  listDocsByCode 추가 (getMetaByDocId 제거)
+const { sendChat, getViewUrl, getDownloadUrl, listDocsByCode } = useApi();
 const { docs, hasData, isLoading, fetchDocs } = useDocsList();
 const messages = ref<ChatMessage[]>([]);
 const bgImage = ref(bgPng);
@@ -397,17 +397,30 @@ const selectedDocIds = computed({
 const currentPage = ref(1);
 const itemsPerPage = 5;
 
-const docMetaCache = ref<Map<string, any>>(new Map());
+//  카테고리로 필터된 doc_id 집합 (신규 추가)
+const categoryDocIdSet = ref<Set<string> | null>(null);
 
+//  filteredDocs: 카테고리 + 검색어 필터링 (수정됨)
 const filteredDocs = computed(() => {
   const q = docSearch.value.trim().toLowerCase();
-  let result = q
-    ? docs.value.filter((d) => {
-        const name = (d.title || d.doc_id || "").toLowerCase();
-        return name.includes(q);
-      })
-    : docs.value.slice();
 
+  // 1) 기본은 전체 docs
+  let result = docs.value.slice();
+
+  // 2) 카테고리 필터가 있으면 해당 doc_id만 남김
+  if (categoryDocIdSet.value) {
+    result = result.filter((d) => categoryDocIdSet.value!.has(d.doc_id));
+  }
+
+  // 3) 검색어 필터
+  if (q) {
+    result = result.filter((d) => {
+      const name = (d.title || d.doc_id || "").toLowerCase();
+      return name.includes(q);
+    });
+  }
+
+  // 4) 정렬 (업로드 최신순 → 제목순)
   result.sort((a, b) => {
     if (a.uploaded_at && b.uploaded_at) {
       return (
@@ -466,92 +479,64 @@ function goChunks(d: DocItem) {
   router.push(`/chunks/${encodeURIComponent(d.doc_id)}`);
 }
 
-//  메타데이터 로드 함수 추가
-const loadDocMeta = async (docId: string) => {
-  if (docMetaCache.value.has(docId)) {
-    return docMetaCache.value.get(docId);
-  }
-
-  try {
-    const meta = await getMetaByDocId(docId);
-    if (meta) {
-      docMetaCache.value.set(docId, meta);
-      return meta;
-    }
-  } catch (e) {
-    console.warn(`[Chat] Failed to load meta for ${docId}:`, e);
-  }
-
-  return null;
-};
-
+// 카테고리 선택 핸들러 (완전 교체)
 async function onCategorySelected(filter: {
   code?: string;
   detail?: string;
   sub?: string;
 }) {
-  console.log(`[Chat] Category selected:`, filter);
+  console.log("[Chat] Category selected:", filter);
 
-  const { code, detail, sub } = filter;
-
-  // 모든 문서 메타를 한 번씩(또는 일부) 로딩
-  await Promise.all(docs.value.map((d) => loadDocMeta(d.doc_id)));
-
-  // 필터에 맞는 문서 찾기
-  const matched = docs.value.filter((d) => {
-    const meta = docMetaCache.value.get(d.doc_id);
-    if (!meta) return false;
-
-    const c = meta.data_code != null ? String(meta.data_code) : undefined;
-    const d1 =
-      meta.data_code_detail != null ? String(meta.data_code_detail) : undefined;
-    const d2 =
-      meta.data_code_detail_sub != null
-        ? String(meta.data_code_detail_sub)
-        : undefined;
-
-    const matchCode = !code || c === code;
-    const matchDetail = !detail || d1 === detail;
-    const matchSub = !sub || d2 === sub;
-
-    return matchCode && matchDetail && matchSub;
-  });
-
-  const matchedIds = matched.map((d) => d.doc_id);
-
-  if (!matchedIds.length) {
-    console.log("[Chat] 선택된 카테고리에 해당하는 문서가 없습니다.", filter);
+  // "전체" 같은 리셋 케이스
+  if (!filter.code && !filter.detail && !filter.sub) {
+    categoryDocIdSet.value = null;
+    selectedDocIds.value = [];
+    currentPage.value = 1;
     return;
   }
 
-  // ✅ 이미 전부 선택돼 있으면 → 해제, 아니면 → 선택
-  const current = new Set(selectedDocIds.value);
-  const allSelected = matchedIds.every((id) => current.has(id));
+  try {
+    // 백엔드 API로 필터링된 doc_ids 가져오기
+    const docIds = await listDocsByCode({
+      code: filter.code,
+      detail: filter.detail,
+      sub: filter.sub,
+    });
 
-  if (allSelected) {
-    matchedIds.forEach((id) => current.delete(id));
-  } else {
-    matchedIds.forEach((id) => current.add(id));
+    // 중복 제거
+    const uniq = Array.from(new Set(docIds));
+
+    //  1) 체크박스 선택 상태 - 토글 방식 유지
+    const current = new Set(selectedDocIds.value);
+    const allSelected = uniq.every((id) => current.has(id));
+
+    if (allSelected) {
+      // 모두 선택되어 있으면 해제
+      uniq.forEach((id) => current.delete(id));
+    } else {
+      // 하나라도 선택 안 되어 있으면 전체 선택
+      uniq.forEach((id) => current.add(id));
+    }
+
+    selectedDocIds.value = Array.from(current);
+
+    //  2) 좌측 리스트 필터링용 set
+    categoryDocIdSet.value = new Set(uniq);
+
+    console.log(
+      `[Chat] Category toggle: ${uniq.length} docs, allSelected=${allSelected}`
+    );
+
+    currentPage.value = 1;
+  } catch (e) {
+    console.error("[Chat] onCategorySelected failed:", e);
+    alert("문서 카테고리 필터링 중 오류가 발생했습니다.");
   }
-
-  selectedDocIds.value = Array.from(current);
-  console.log(
-    `[Chat] Category toggle: ${matchedIds.length} docs, allSelected=${allSelected}`
-  );
 }
 
+//  onMounted - 메타 프리로드 제거
 onMounted(async () => {
-  await fetchDocs(); // 문서 리스트 먼저
-
-  // 메타는 선택적으로, 실패해도 전체가 죽지 않게
-  try {
-    await Promise.all(
-      docs.value.slice(0, 50).map((d) => loadDocMeta(d.doc_id))
-    );
-  } catch (e) {
-    console.warn("[Chat] 초기 meta preload 실패:", e);
-  }
-
+  await fetchDocs();
   window.addEventListener("click", onGlobalClick);
 });
 
