@@ -66,7 +66,7 @@
         <!-- 선택된 문서 태그 -->
         <div
           v-if="selectedDocs.length"
-          class="mb-2 pr-0 max-h-[130px] min-h-[105px] overflow-y-auto scrollbar-zinc gap-2"
+          class="mb-2 pr-0 max-h-[135px] min-h-[110px] overflow-y-auto scrollbar-zinc gap-2"
           style="scrollbar-gutter: stable"
         >
           <div
@@ -89,7 +89,7 @@
         </div>
         <div
           v-else
-          class="mb-2 min-h-[105px] text-xs text-zinc-400 items-center flex justify-center"
+          class="mb-2 min-h-[110px] text-xs text-zinc-400 items-center flex justify-center"
         >
           전체 문서에서 검색합니다.
         </div>
@@ -112,7 +112,7 @@
       <div class="flex-shrink-0">
         <div class="p-3 pr-1 space-y-1">
           <!-- 선택 개수 + 초기화 버튼 -->
-          <div class="flex p-3 items-center justify-between mb-2">
+          <div class="flex items-center justify-between mb-2">
             <span class="text-[11px] text-zinc-500">
               선택된 문서 {{ selectedDocIds.length }}개
             </span>
