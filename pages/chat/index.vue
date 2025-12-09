@@ -379,7 +379,9 @@ const chatStore = useChatStore();
 const router = useRouter();
 
 // 표시용 메시지 (Store 우선)
-const displayMessages = computed(() => chatStore.messages.value);
+const displayMessages = computed(() => {
+  return chatStore.currentSession.value?.messages ?? [];
+});
 
 // 현재 세션 ID
 const currentSessionId = computed(() => chatStore.currentSessionId.value);
@@ -622,6 +624,10 @@ const confirmDeleteSession = (sessionId: string) => {
 };
 
 const onSend = async (query: string) => {
+  // 1) 보내는 시점의 세션 ID를 고정
+  const sessionIdAtSend = chatStore.currentSessionId.value;
+  if (!sessionIdAtSend) return;
+
   const userMsg: ChatMessage = {
     id: generateId(),
     role: "user",
@@ -629,11 +635,14 @@ const onSend = async (query: string) => {
     created_at: new Date().toISOString(),
   };
 
-  chatStore.addMessage(userMsg);
-  answering.value = true;
+  // 2) 질문은 “그 시점 세션”에만 쌓기
+  chatStore.addMessageToSession(sessionIdAtSend, userMsg);
 
+  answering.value = true;
   try {
-    const history = displayMessages.value.map((m) => ({
+    // history도 해당 세션 기준으로
+    const sessionAtSend = chatStore.sessions.value.get(sessionIdAtSend);
+    const history = (sessionAtSend?.messages || []).map((m) => ({
       role: m.role,
       content: m.content,
     }));
@@ -652,7 +661,8 @@ const onSend = async (query: string) => {
       sources,
     };
 
-    chatStore.addMessage(botMsg);
+    // 3) 응답도 “질문 보냈던 세션”에만 추가
+    chatStore.addMessageToSession(sessionIdAtSend, botMsg);
   } catch (e: any) {
     const botMsg: ChatMessage = {
       id: generateId(),
@@ -662,7 +672,8 @@ const onSend = async (query: string) => {
       }`,
       created_at: new Date().toISOString(),
     };
-    chatStore.addMessage(botMsg);
+
+    chatStore.addMessageToSession(sessionIdAtSend, botMsg);
   } finally {
     answering.value = false;
   }

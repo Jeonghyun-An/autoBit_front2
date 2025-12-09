@@ -105,17 +105,26 @@ function createChatStore() {
     }
   };
 
-  const addMessage = (message: ChatMessage) => {
-    const cs = currentSession.value;
-    if (!cs) return;
+  const addMessageToSession = (sessionId: string, message: ChatMessage) => {
+    const session = sessions.value.get(sessionId);
+    if (!session) return;
 
-    cs.messages.push(message);
-    cs.updatedAt = new Date().toISOString();
-    // Map 안 객체를 직접 바꿨으니 한 번 더 세션 갱신
+    const updated: ChatSession = {
+      ...session,
+      messages: [...session.messages, message],
+      updatedAt: new Date().toISOString(),
+    };
+
     setSessions((m) => {
-      m.set(cs.id, { ...cs });
+      m.set(sessionId, updated);
     });
     saveToStorage();
+  };
+
+  const addMessage = (message: ChatMessage) => {
+    const sid = currentSessionId.value;
+    if (!sid) return;
+    addMessageToSession(sid, message);
   };
 
   const setSelectedDocs = (docIds: string[]) => {
@@ -225,6 +234,7 @@ function createChatStore() {
     createSession,
     switchSession,
     addMessage,
+    addMessageToSession,
     deleteSession,
     setSelectedDocs,
     addSelectedDoc,
