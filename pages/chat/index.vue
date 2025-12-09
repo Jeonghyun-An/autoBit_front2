@@ -312,12 +312,17 @@
         <div
           v-else
           ref="chatScroller"
-          class="flex-1 min-h-0 overflow-y-auto space-y-4 p-4 scrollbar-zinc"
+          class="flex-1 min-h-0 overflow-y-auto p-4 scrollbar-zinc"
           style="scrollbar-gutter: stable"
         >
-          <RagMessageBubble v-for="m in displayMessages" :key="m.id" :msg="m" />
+          <RagMessageBubble
+            v-for="m in displayMessages"
+            :key="m.id"
+            :msg="m"
+            class="mb-4"
+          />
           <!-- 답변 생성 중 로딩 버블 -->
-          <div v-if="answering" class="flex">
+          <div v-if="answering" class="flex w-full justify-start items-start">
             <div
               class="max-w-[80%] rounded-2xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 inline-flex items-center gap-2"
             >
@@ -368,17 +373,13 @@ import bgPng from "~/assets/img/ic_floating_chat.png";
 //  listDocsByCode 추가 (getMetaByDocId 제거)
 const { sendChat, getViewUrl, getDownloadUrl, listDocsByCode } = useApi();
 const { docs, hasData, isLoading, fetchDocs } = useDocsList();
-const messages = ref<ChatMessage[]>([]);
+// const messages = ref<ChatMessage[]>([]);
 const bgImage = ref(bgPng);
 const chatStore = useChatStore();
 const router = useRouter();
 
 // 표시용 메시지 (Store 우선)
-const displayMessages = computed(() => {
-  return chatStore.messages.value.length > 0
-    ? chatStore.messages.value
-    : messages.value;
-});
+const displayMessages = computed(() => chatStore.messages.value);
 
 // 현재 세션 ID
 const currentSessionId = computed(() => chatStore.currentSessionId.value);
@@ -620,7 +621,6 @@ const confirmDeleteSession = (sessionId: string) => {
   }
 };
 
-// 메시지 전송
 const onSend = async (query: string) => {
   const userMsg: ChatMessage = {
     id: generateId(),
@@ -629,22 +629,21 @@ const onSend = async (query: string) => {
     created_at: new Date().toISOString(),
   };
 
-  messages.value = [...messages.value, userMsg];
   chatStore.addMessage(userMsg);
-
   answering.value = true;
+
   try {
     const history = displayMessages.value.map((m) => ({
       role: m.role,
       content: m.content,
     }));
 
-    // sendChat 내부에서 body에 doc_ids: selectedDocIds.value 넣도록 구현
     const { answer, sources } = await sendChat(
       history,
       query,
       selectedDocIds.value.length > 0 ? selectedDocIds.value : undefined
     );
+
     const botMsg: ChatMessage = {
       id: generateId(),
       role: "assistant",
@@ -653,7 +652,6 @@ const onSend = async (query: string) => {
       sources,
     };
 
-    messages.value = [...messages.value, botMsg];
     chatStore.addMessage(botMsg);
   } catch (e: any) {
     const botMsg: ChatMessage = {
@@ -664,8 +662,6 @@ const onSend = async (query: string) => {
       }`,
       created_at: new Date().toISOString(),
     };
-
-    messages.value = [...messages.value, botMsg];
     chatStore.addMessage(botMsg);
   } finally {
     answering.value = false;

@@ -1,5 +1,10 @@
 <template>
-  <div :class="['flex w-full gap-2', isUser ? 'justify-end' : 'justify-start']">
+  <div
+    :class="[
+      'flex w-full gap-2 items-start',
+      isUser ? 'justify-end' : 'justify-start',
+    ]"
+  >
     <!-- 아이콘 영역: assistant일 때만 표시 -->
     <div v-if="!isUser" class="chat_ico shrink-0">
       <img :src="bgImage" alt="Assistant Icon" />
