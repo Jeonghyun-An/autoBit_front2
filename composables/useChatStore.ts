@@ -15,6 +15,7 @@ const STORAGE_KEY = "kinaci_chat_sessions";
 const CURRENT_SESSION_KEY = "kinaci_current_session";
 const isClient = typeof window !== "undefined";
 
+// 실제 store 생성 로직을 분리
 function createChatStore() {
   const currentSessionId = ref<string | null>(null);
   const sessions = ref<Map<string, ChatSession>>(new Map());
@@ -35,34 +36,21 @@ function createChatStore() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored);
-        sessions.value = new Map(
-          Object.entries(parsed).map(([id, session]: [string, any]) => [
-            id,
-            {
-              ...session,
-              selectedDocIds: session.selectedDocIds || [],
-            },
-          ])
-        );
-      }
-
-      let currentId = sessionStorage.getItem(CURRENT_SESSION_KEY);
-
-      // currentId 가 없거나, 이미 삭제된 세션이면 → 최신 세션으로 fallback
-      if (!currentId || !sessions.value.has(currentId)) {
-        if (sessions.value.size > 0) {
-          const sorted = Array.from(sessions.value.values()).sort(
-            (a, b) =>
-              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-          );
-          currentId = sorted[0]?.id ?? null;
-        } else {
-          currentId = null;
+        const parsed = JSON.parse(stored) as Record<string, ChatSession>;
+        const m = new Map<string, ChatSession>();
+        for (const [id, session] of Object.entries(parsed)) {
+          m.set(id, {
+            ...session,
+            selectedDocIds: session.selectedDocIds || [],
+          });
         }
+        sessions.value = m;
       }
 
-      currentSessionId.value = currentId;
+      const currentId = sessionStorage.getItem(CURRENT_SESSION_KEY);
+      if (currentId && sessions.value.has(currentId)) {
+        currentSessionId.value = currentId;
+      }
     } catch (e) {
       console.error("[ChatStore] Failed to load from storage:", e);
     }
@@ -83,6 +71,13 @@ function createChatStore() {
     }
   };
 
+  // Map 조작할 때는 항상 새 Map으로 교체해서 반응성 보장
+  const setSessions = (updater: (prev: Map<string, ChatSession>) => void) => {
+    const next = new Map(sessions.value);
+    updater(next);
+    sessions.value = next;
+  };
+
   const createSession = () => {
     const newSession: ChatSession = {
       id: generateId(),
@@ -91,7 +86,11 @@ function createChatStore() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    sessions.value.set(newSession.id, newSession);
+
+    setSessions((m) => {
+      m.set(newSession.id, newSession);
+    });
+
     currentSessionId.value = newSession.id;
     saveToStorage();
     return newSession;
@@ -107,60 +106,84 @@ function createChatStore() {
   };
 
   const addMessage = (message: ChatMessage) => {
-    if (!currentSession.value) return;
-    currentSession.value.messages.push(message);
-    currentSession.value.updatedAt = new Date().toISOString();
+    const cs = currentSession.value;
+    if (!cs) return;
+
+    cs.messages.push(message);
+    cs.updatedAt = new Date().toISOString();
+    // Map 안 객체를 직접 바꿨으니 한 번 더 세션 갱신
+    setSessions((m) => {
+      m.set(cs.id, { ...cs });
+    });
     saveToStorage();
   };
 
   const setSelectedDocs = (docIds: string[]) => {
-    if (!currentSession.value) return;
-    currentSession.value.selectedDocIds = [...docIds];
-    currentSession.value.updatedAt = new Date().toISOString();
+    const cs = currentSession.value;
+    if (!cs) return;
+
+    cs.selectedDocIds = [...docIds];
+    cs.updatedAt = new Date().toISOString();
+    setSessions((m) => {
+      m.set(cs.id, { ...cs });
+    });
     saveToStorage();
   };
 
   const addSelectedDoc = (docId: string) => {
-    if (!currentSession.value) return;
-    if (!currentSession.value.selectedDocIds.includes(docId)) {
-      currentSession.value.selectedDocIds.push(docId);
-      currentSession.value.updatedAt = new Date().toISOString();
+    const cs = currentSession.value;
+    if (!cs) return;
+
+    if (!cs.selectedDocIds.includes(docId)) {
+      cs.selectedDocIds.push(docId);
+      cs.updatedAt = new Date().toISOString();
+      setSessions((m) => {
+        m.set(cs.id, { ...cs });
+      });
       saveToStorage();
     }
   };
 
   const removeSelectedDoc = (docId: string) => {
-    if (!currentSession.value) return;
-    const index = currentSession.value.selectedDocIds.indexOf(docId);
-    if (index > -1) {
-      currentSession.value.selectedDocIds.splice(index, 1);
-      currentSession.value.updatedAt = new Date().toISOString();
-      saveToStorage();
-    }
+    const cs = currentSession.value;
+    if (!cs) return;
+
+    cs.selectedDocIds = cs.selectedDocIds.filter((id) => id !== docId);
+    cs.updatedAt = new Date().toISOString();
+    setSessions((m) => {
+      m.set(cs.id, { ...cs });
+    });
+    saveToStorage();
   };
 
   const toggleSelectedDoc = (docId: string) => {
-    if (!currentSession.value) return;
-    const index = currentSession.value.selectedDocIds.indexOf(docId);
-    if (index > -1) {
-      currentSession.value.selectedDocIds.splice(index, 1);
+    const cs = currentSession.value;
+    if (!cs) return;
+
+    if (cs.selectedDocIds.includes(docId)) {
+      cs.selectedDocIds = cs.selectedDocIds.filter((id) => id !== docId);
     } else {
-      currentSession.value.selectedDocIds.push(docId);
+      cs.selectedDocIds = [...cs.selectedDocIds, docId];
     }
-    currentSession.value.updatedAt = new Date().toISOString();
+    cs.updatedAt = new Date().toISOString();
+    setSessions((m) => {
+      m.set(cs.id, { ...cs });
+    });
     saveToStorage();
   };
 
   const deleteSession = (sessionId: string) => {
-    sessions.value.delete(sessionId);
+    setSessions((m) => {
+      m.delete(sessionId);
+    });
 
     if (currentSessionId.value === sessionId) {
-      if (sessions.value.size > 0) {
-        const sorted = Array.from(sessions.value.values()).sort(
-          (a, b) =>
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-        );
-        currentSessionId.value = sorted[0]?.id ?? null;
+      const sorted = Array.from(sessions.value.values()).sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
+      if (sorted.length > 0 && sorted[0]) {
+        currentSessionId.value = sorted[0].id;
       } else {
         createSession();
       }
@@ -169,10 +192,28 @@ function createChatStore() {
     saveToStorage();
   };
 
-  // 초기화
+  // 초기 로딩
   loadFromStorage();
+
+  // 세션 선택 전략:
+  // 1) currentSessionId가 있으면 그걸 사용
+  // 2) 없는데 세션들이 있다면, updatedAt 기준으로 "가장 최근 세션"을 선택
+  // 3) 세션 자체가 하나도 없으면 그때만 createSession()
   if (!currentSessionId.value) {
-    createSession();
+    if (sessions.value.size > 0) {
+      const latest = Array.from(sessions.value.values()).sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )[0];
+      if (latest) {
+        currentSessionId.value = latest.id;
+        if (isClient) {
+          sessionStorage.setItem(CURRENT_SESSION_KEY, latest.id);
+        }
+      }
+    } else {
+      createSession();
+    }
   }
 
   return {
@@ -192,9 +233,12 @@ function createChatStore() {
   };
 }
 
-// 싱글톤
-let _store: ReturnType<typeof createChatStore> | null = null;
+// 여기에서 싱글톤 유지
+let _chatStore: ReturnType<typeof createChatStore> | null = null;
+
 export const useChatStore = () => {
-  if (!_store) _store = createChatStore();
-  return _store;
+  if (!_chatStore) {
+    _chatStore = createChatStore();
+  }
+  return _chatStore;
 };

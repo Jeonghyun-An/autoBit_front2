@@ -22,4 +22,9 @@ export default defineNuxtConfig({
       "/llama": { target: "http://localhost:8000/llama", changeOrigin: true },
     },
   },
+  ssr: false,
+  // ssr: true,
+  // routeRules: {
+  //   "/chat/**": { ssr: false },
+  // },
 });

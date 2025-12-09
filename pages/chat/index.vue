@@ -40,7 +40,7 @@
             v-for="session in sortedSessions"
             :key="session.id"
             :class="[
-              'px-2 py-1.5 text-xs rounded cursor-pointer flex items-center justify-between',
+              'px-2 py-1.5 text-xs rounded cursor-pointer flex items-center justify-between outline-none',
               session.id === currentSessionId
                 ? 'bg-slate-900 text-white'
                 : 'bg-zinc-100 hover:bg-zinc-200',
