@@ -6,7 +6,7 @@ import { generateId } from "@/utils/uuid";
 export interface ChatSession {
   id: string;
   messages: ChatMessage[];
-  selectedDocIds: string[]; // 추가: 선택된 문서 ID 배열
+  selectedDocIds: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -15,7 +15,7 @@ const STORAGE_KEY = "kinaci_chat_sessions";
 const CURRENT_SESSION_KEY = "kinaci_current_session";
 const isClient = typeof window !== "undefined";
 
-export const useChatStore = () => {
+function createChatStore() {
   const currentSessionId = ref<string | null>(null);
   const sessions = ref<Map<string, ChatSession>>(new Map());
 
@@ -29,7 +29,6 @@ export const useChatStore = () => {
     () => currentSession.value?.selectedDocIds || []
   );
 
-  // 수정: 서버에서는 바로 return 해서 localStorage 접근 안 하게
   const loadFromStorage = () => {
     if (!isClient) return;
 
@@ -48,16 +47,27 @@ export const useChatStore = () => {
         );
       }
 
-      const currentId = sessionStorage.getItem(CURRENT_SESSION_KEY);
-      if (currentId && sessions.value.has(currentId)) {
-        currentSessionId.value = currentId;
+      let currentId = sessionStorage.getItem(CURRENT_SESSION_KEY);
+
+      // currentId 가 없거나, 이미 삭제된 세션이면 → 최신 세션으로 fallback
+      if (!currentId || !sessions.value.has(currentId)) {
+        if (sessions.value.size > 0) {
+          const sorted = Array.from(sessions.value.values()).sort(
+            (a, b) =>
+              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          );
+          currentId = sorted[0]?.id ?? null;
+        } else {
+          currentId = null;
+        }
       }
+
+      currentSessionId.value = currentId;
     } catch (e) {
       console.error("[ChatStore] Failed to load from storage:", e);
     }
   };
 
-  // 로컬스토리지에 저장
   const saveToStorage = () => {
     if (!isClient) return;
 
@@ -72,12 +82,12 @@ export const useChatStore = () => {
       console.error("[ChatStore] Failed to save to storage:", e);
     }
   };
-  // 새 세션 생성
+
   const createSession = () => {
     const newSession: ChatSession = {
       id: generateId(),
       messages: [],
-      selectedDocIds: [], // 🔹 초기화
+      selectedDocIds: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -87,36 +97,31 @@ export const useChatStore = () => {
     return newSession;
   };
 
-  // 세션 전환
   const switchSession = (sessionId: string) => {
     if (sessions.value.has(sessionId)) {
       currentSessionId.value = sessionId;
-      sessionStorage.setItem(CURRENT_SESSION_KEY, sessionId);
+      if (isClient) {
+        sessionStorage.setItem(CURRENT_SESSION_KEY, sessionId);
+      }
     }
   };
 
-  // 메시지 추가
   const addMessage = (message: ChatMessage) => {
     if (!currentSession.value) return;
-
     currentSession.value.messages.push(message);
     currentSession.value.updatedAt = new Date().toISOString();
     saveToStorage();
   };
 
-  // 🔹 추가: 선택된 문서 설정 (전체 교체)
   const setSelectedDocs = (docIds: string[]) => {
     if (!currentSession.value) return;
-
     currentSession.value.selectedDocIds = [...docIds];
     currentSession.value.updatedAt = new Date().toISOString();
     saveToStorage();
   };
 
-  // 🔹 추가: 선택된 문서 추가
   const addSelectedDoc = (docId: string) => {
     if (!currentSession.value) return;
-
     if (!currentSession.value.selectedDocIds.includes(docId)) {
       currentSession.value.selectedDocIds.push(docId);
       currentSession.value.updatedAt = new Date().toISOString();
@@ -124,10 +129,8 @@ export const useChatStore = () => {
     }
   };
 
-  // 🔹 추가: 선택된 문서 제거
   const removeSelectedDoc = (docId: string) => {
     if (!currentSession.value) return;
-
     const index = currentSession.value.selectedDocIds.indexOf(docId);
     if (index > -1) {
       currentSession.value.selectedDocIds.splice(index, 1);
@@ -136,10 +139,8 @@ export const useChatStore = () => {
     }
   };
 
-  // 🔹 추가: 선택된 문서 토글
   const toggleSelectedDoc = (docId: string) => {
     if (!currentSession.value) return;
-
     const index = currentSession.value.selectedDocIds.indexOf(docId);
     if (index > -1) {
       currentSession.value.selectedDocIds.splice(index, 1);
@@ -150,23 +151,16 @@ export const useChatStore = () => {
     saveToStorage();
   };
 
-  // 세션 삭제
   const deleteSession = (sessionId: string) => {
     sessions.value.delete(sessionId);
 
     if (currentSessionId.value === sessionId) {
-      // 다른 세션으로 전환 또는 새로 생성
       if (sessions.value.size > 0) {
         const sorted = Array.from(sessions.value.values()).sort(
           (a, b) =>
             new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
         );
-
-        if (sorted.length > 0 && sorted[0]) {
-          currentSessionId.value = sorted[0].id;
-        } else {
-          createSession();
-        }
+        currentSessionId.value = sorted[0]?.id ?? null;
       } else {
         createSession();
       }
@@ -177,8 +171,6 @@ export const useChatStore = () => {
 
   // 초기화
   loadFromStorage();
-
-  // 자동 세션 생성
   if (!currentSessionId.value) {
     createSession();
   }
@@ -188,14 +180,21 @@ export const useChatStore = () => {
     sessions,
     currentSession,
     messages,
-    selectedDocIds, // 🔹 추가
+    selectedDocIds,
     createSession,
     switchSession,
     addMessage,
     deleteSession,
-    setSelectedDocs, // 🔹 추가
-    addSelectedDoc, // 🔹 추가
-    removeSelectedDoc, // 🔹 추가
-    toggleSelectedDoc, // 🔹 추가
+    setSelectedDocs,
+    addSelectedDoc,
+    removeSelectedDoc,
+    toggleSelectedDoc,
   };
+}
+
+// 싱글톤
+let _store: ReturnType<typeof createChatStore> | null = null;
+export const useChatStore = () => {
+  if (!_store) _store = createChatStore();
+  return _store;
 };
