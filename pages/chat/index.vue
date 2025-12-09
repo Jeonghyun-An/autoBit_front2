@@ -411,9 +411,6 @@ const selectedDocIds = computed({
 const currentPage = ref(1);
 const itemsPerPage = 5;
 
-//  카테고리로 필터된 doc_id 집합 (신규 추가)
-const categoryDocIdSet = ref<Set<string> | null>(null);
-
 /**
  * filteredDocs:
  * - 기본: 전체 docs
@@ -511,6 +508,8 @@ async function onCategorySelected(filter: {
 
   // 필터 정보가 없으면 아무 것도 안 함 (여기서 전체 해제 로직 넣을 수도 있음)
   if (!filter.code && !filter.detail && !filter.sub) {
+    // 선택만 싹 지우고 싶으면:
+    // chatStore.setSelectedDocs([]);
     return;
   }
 
@@ -522,9 +521,10 @@ async function onCategorySelected(filter: {
     });
 
     const uniq = Array.from(new Set(docIds));
-
     const current = new Set(selectedDocIds.value);
-    const allSelected = uniq.every((id) => current.has(id));
+
+    // 카테고리에 속한 문서가 모두 이미 선택되어 있으면 → 해제
+    const allSelected = uniq.length > 0 && uniq.every((id) => current.has(id));
 
     if (allSelected) {
       // 이미 다 선택되어 있으면 해당 카테고리 문서만 해제
@@ -533,8 +533,7 @@ async function onCategorySelected(filter: {
       // 일부라도 안 선택되어 있으면 카테고리 문서 전체 선택
       uniq.forEach((id) => current.add(id));
     }
-
-    selectedDocIds.value = Array.from(current);
+    chatStore.setSelectedDocs(Array.from(current));
 
     console.log(
       `[Chat] Category toggle: ${uniq.length} docs, allSelected=${allSelected}`
