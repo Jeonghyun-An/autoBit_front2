@@ -111,6 +111,20 @@
       <!--  문서 리스트 (페이징) -->
       <div class="flex-shrink-0">
         <div class="p-3 pr-1 space-y-1">
+          <!-- 선택 개수 + 초기화 버튼 -->
+          <div class="flex p-3 items-center justify-between mb-2">
+            <span class="text-[11px] text-zinc-500">
+              선택된 문서 {{ selectedDocIds.length }}개
+            </span>
+            <button
+              type="button"
+              class="px-2 py-1 text-[11px] rounded-md border border-zinc-300 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              @click="clearSelectedDocs"
+              :disabled="selectedDocIds.length === 0"
+            >
+              선택 초기화
+            </button>
+          </div>
           <div
             v-if="!paginatedDocs.length"
             class="text-xs text-zinc-400 text-center py-4"
@@ -400,19 +414,17 @@ const itemsPerPage = 5;
 //  카테고리로 필터된 doc_id 집합 (신규 추가)
 const categoryDocIdSet = ref<Set<string> | null>(null);
 
-//  filteredDocs: 카테고리 + 검색어 필터링 (수정됨)
+/**
+ * filteredDocs:
+ * - 기본: 전체 docs
+ * - 검색어 있으면 제목/ID 기준 필터
+ * - 카테고리 선택과는 무관 (카테고리는 선택 상태만 제어)
+ */
 const filteredDocs = computed(() => {
   const q = docSearch.value.trim().toLowerCase();
 
-  // 1) 기본은 전체 docs
   let result = docs.value.slice();
 
-  // 2) 카테고리 필터가 있으면 해당 doc_id만 남김
-  if (categoryDocIdSet.value) {
-    result = result.filter((d) => categoryDocIdSet.value!.has(d.doc_id));
-  }
-
-  // 3) 검색어 필터
   if (q) {
     result = result.filter((d) => {
       const name = (d.title || d.doc_id || "").toLowerCase();
@@ -420,7 +432,7 @@ const filteredDocs = computed(() => {
     });
   }
 
-  // 4) 정렬 (업로드 최신순 → 제목순)
+  // 정렬 (업로드 최신순 → 제목순)
   result.sort((a, b) => {
     if (a.uploaded_at && b.uploaded_at) {
       return (
@@ -475,10 +487,21 @@ function toggleSelect(docId: string) {
   chatStore.toggleSelectedDoc(docId);
 }
 
+// 선택 초기화 버튼
+function clearSelectedDocs() {
+  chatStore.setSelectedDocs([]);
+}
+
 function goChunks(d: DocItem) {
   router.push(`/chunks/${encodeURIComponent(d.doc_id)}`);
 }
 
+/**
+ * 카테고리 선택:
+ * - 백엔드에서 해당 카테고리 doc_ids 가져옴
+ * - 그 doc_ids에 대해 "토글 선택"만 수행
+ * - 리스트/검색에는 전혀 영향 X (항상 전체 docs 기준)
+ */
 async function onCategorySelected(filter: {
   code?: string;
   detail?: string;
@@ -486,16 +509,12 @@ async function onCategorySelected(filter: {
 }) {
   console.log("[Chat] Category selected:", filter);
 
-  // "전체 해제" 용: code/detail/sub 모두 없는 경우 → 필터만 리셋
+  // 필터 정보가 없으면 아무 것도 안 함 (여기서 전체 해제 로직 넣을 수도 있음)
   if (!filter.code && !filter.detail && !filter.sub) {
-    categoryDocIdSet.value = null; // 필터 해제
-    currentPage.value = 1;
-    // ✅ 선택 문서(selectedDocIds)는 건드리지 않는다
     return;
   }
 
   try {
-    // 백엔드에서 해당 카테고리에 속하는 doc_id 리스트만 받아옴
     const docIds = await listDocsByCode({
       code: filter.code,
       detail: filter.detail,
@@ -504,16 +523,25 @@ async function onCategorySelected(filter: {
 
     const uniq = Array.from(new Set(docIds));
 
-    // 여기서는 선택 상태를 건드리지 않고,
-    //    좌측 리스트 필터용 집합만 세팅
-    categoryDocIdSet.value = new Set(uniq);
+    const current = new Set(selectedDocIds.value);
+    const allSelected = uniq.every((id) => current.has(id));
 
-    console.log(`[Chat] Category filter applied: ${uniq.length} docs`);
+    if (allSelected) {
+      // 이미 다 선택되어 있으면 해당 카테고리 문서만 해제
+      uniq.forEach((id) => current.delete(id));
+    } else {
+      // 일부라도 안 선택되어 있으면 카테고리 문서 전체 선택
+      uniq.forEach((id) => current.add(id));
+    }
 
-    currentPage.value = 1;
+    selectedDocIds.value = Array.from(current);
+
+    console.log(
+      `[Chat] Category toggle: ${uniq.length} docs, allSelected=${allSelected}`
+    );
   } catch (e) {
     console.error("[Chat] onCategorySelected failed:", e);
-    alert("문서 카테고리 필터링 중 오류가 발생했습니다.");
+    alert("문서 카테고리 선택 중 오류가 발생했습니다.");
   }
 }
 
