@@ -1,12 +1,55 @@
 <template>
   <div class="px-3 py-2">
     <div class="max-w-5xl mx-auto">
+      <!-- 답변 모드 선택 버튼 (Textarea 위에 배치) -->
+      <div class="mb-2 flex items-center gap-2">
+        <span class="text-xs text-zinc-600 font-medium">답변 모드:</span>
+        <div
+          class="inline-flex rounded-lg border border-slate-300 bg-white overflow-hidden"
+        >
+          <button
+            type="button"
+            :class="[
+              'px-4 py-1.5 text-sm font-medium transition-colors',
+              responseType === 'short'
+                ? 'bg-slate-900 text-white'
+                : 'bg-white text-slate-700 hover:bg-slate-100',
+            ]"
+            @click="responseType = 'short'"
+          >
+            단문형
+          </button>
+          <button
+            type="button"
+            :class="[
+              'px-4 py-1.5 text-sm font-medium transition-colors border-l border-slate-300',
+              responseType === 'long'
+                ? 'bg-slate-900 text-white'
+                : 'bg-white text-slate-700 hover:bg-slate-100',
+            ]"
+            @click="responseType = 'long'"
+          >
+            장문형
+          </button>
+        </div>
+        <span class="text-xs text-zinc-500">
+          {{
+            responseType === "short"
+              ? "(간결한 답변, 빠른 응답)"
+              : "(상세한 답변, 더 많은 컨텍스트)"
+          }}
+        </span>
+      </div>
+
       <!-- 채팅창과 버튼을 나란히 배치 -->
       <div class="flex items-end gap-3">
         <!-- Textarea 영역 -->
         <textarea
           ref="taRef"
-          class="flex-1 resize-none overflow-y-auto rounded-3xl text-black placeholder-zinc-500 p-3 pr-0 focus:outline-none focus:ring-2 focus:ring-slate-900 scrollbar-zinc border border-slate-900"
+          :class="[
+            'flex-1 resize-none rounded-3xl text-black placeholder-zinc-500 p-3 pr-0 focus:outline-none focus:ring-2 focus:ring-slate-900 border border-slate-900',
+            isOverflowing ? 'scrollbar-visible' : 'scrollbar-hidden',
+          ]"
           rows="1"
           style="scrollbar-gutter: stable; line-height: 1.5rem"
           :placeholder="
@@ -43,7 +86,7 @@
 import { ref, watch, onMounted, onBeforeUnmount } from "vue";
 
 const emit = defineEmits<{
-  (e: "send", text: string): void;
+  (e: "send", text: string, responseType: "short" | "long"): void;
   (e: "height-changed", height: number): void;
 }>();
 const props = withDefaults(
@@ -53,6 +96,15 @@ const props = withDefaults(
 
 const value = ref("");
 const taRef = ref<HTMLTextAreaElement | null>(null);
+const responseType = ref<"short" | "long">("short");
+const isOverflowing = ref(false); // 🆕 오버플로우 상태
+
+// 답변 모드 변경 시 localStorage 저장
+watch(responseType, (newType) => {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("rag_response_type", newType);
+  }
+});
 
 function autoresize() {
   const ta = taRef.value;
@@ -66,8 +118,19 @@ function autoresize() {
     parseFloat(getComputedStyle(ta).paddingBottom || "0");
   const maxPx = props.maxRows * lineHeight + paddingY;
 
+  // 🆕 오버플로우 체크: scrollHeight가 maxPx보다 크면 오버플로우
+  isOverflowing.value = ta.scrollHeight > maxPx;
+
   // 최대 높이 제한
   ta.style.height = Math.min(ta.scrollHeight, maxPx) + "px";
+
+  // 🆕 오버플로우 시 overflow-y 설정
+  if (isOverflowing.value) {
+    ta.style.overflowY = "auto";
+  } else {
+    ta.style.overflowY = "hidden";
+  }
+
   emit("height-changed", ta.offsetHeight);
 }
 
@@ -76,7 +139,7 @@ watch(value, () => autoresize());
 function submit() {
   const v = value.value.trim();
   if (!v) return;
-  emit("send", v);
+  emit("send", v, responseType.value);
   value.value = "";
   autoresize();
 }
@@ -103,6 +166,14 @@ defineExpose({
 });
 
 onMounted(() => {
+  // localStorage에서 저장된 모드 복원
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("rag_response_type");
+    if (saved === "short" || saved === "long") {
+      responseType.value = saved;
+    }
+  }
+
   autoresize();
   window.addEventListener("resize", onResize);
 });
@@ -113,20 +184,43 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* 스크롤바 자체를 안 보이게 (휠 스크롤은 그대로 가능) */
-.scrollbar-zinc {
-  /* Firefox */
-  scrollbar-width: none;
+/* 오버플로우 없을 때: 스크롤바 완전히 숨김 */
+.scrollbar-hidden {
+  overflow-y: hidden;
+  scrollbar-width: none; /* Firefox */
 }
 
-/* Chrome, Edge, Safari 계열 */
-.scrollbar-zinc::-webkit-scrollbar {
+.scrollbar-hidden::-webkit-scrollbar {
   width: 0;
   height: 0;
 }
 
-/* 혹시 남아있을 버튼/화살표 방지용(안전빵) */
-.scrollbar-zinc::-webkit-scrollbar-button {
+/* 오버플로우 있을 때: 스크롤바 표시 */
+.scrollbar-visible {
+  overflow-y: auto;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #d4d4d9 transparent; /* Firefox: thumb track */
+}
+
+/* Chrome, Edge, Safari: 스크롤바 스타일링 */
+.scrollbar-visible::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-visible::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-visible::-webkit-scrollbar-thumb {
+  background: #d4d4d9; /* zinc-400 */
+  border-radius: 4px;
+}
+
+.scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa; /* zinc-500 */
+}
+
+.scrollbar-visible::-webkit-scrollbar-button {
   display: none;
   width: 0;
   height: 0;

@@ -623,7 +623,10 @@ const confirmDeleteSession = (sessionId: string) => {
   }
 };
 
-const onSend = async (query: string) => {
+const onSend = async (
+  query: string,
+  responseType: "short" | "long" = "short"
+) => {
   // 1) 보내는 시점의 세션 ID를 고정
   const sessionIdAtSend = chatStore.currentSessionId.value;
   if (!sessionIdAtSend) return;
@@ -650,7 +653,8 @@ const onSend = async (query: string) => {
     const { answer, sources } = await sendChat(
       history,
       query,
-      selectedDocIds.value.length > 0 ? selectedDocIds.value : undefined
+      selectedDocIds.value.length > 0 ? selectedDocIds.value : undefined,
+      responseType
     );
 
     const botMsg: ChatMessage = {

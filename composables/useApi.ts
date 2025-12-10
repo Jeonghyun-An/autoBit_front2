@@ -378,20 +378,27 @@ export function useApi() {
 
   // ---- chat ----
   async function sendChat(
-    _history: { role: "user" | "assistant"; content: string }[],
+    history: { role: "user" | "assistant"; content: string }[],
     query: string,
-    docIds?: string[] // 선택된 문서 ID 배열
+    docIds?: string[],
+    responseType: "short" | "long" = "short"
   ) {
     const body: any = {
       question: query,
       top_k: 3,
+      history: history.map((m) => ({ role: m.role, content: m.content })),
+      response_type: responseType,
     };
 
     // 선택된 문서가 있으면 doc_ids 전달
     if (docIds && docIds.length > 0) {
       body.doc_ids = docIds;
-      console.log("[API] Filtering by doc_ids:", docIds);
     }
+    console.log(
+      `[API] sendChat: response_type=${responseType}, docIds=${
+        docIds?.length || 0
+      }`
+    );
 
     const res = await fetch(`${API}/ask`, {
       method: "POST",
