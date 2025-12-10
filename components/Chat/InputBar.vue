@@ -273,7 +273,7 @@ function initSpeechRecognition() {
 
       console.log("[STT] Final:", finalTranscript);
     }
-
+    autoresize();
     // 중간 결과 로그 (선택사항)
     if (interimTranscript) {
       console.log("[STT] Interim:", interimTranscript);
