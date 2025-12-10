@@ -43,6 +43,25 @@
 
       <!-- 채팅창과 버튼을 나란히 배치 -->
       <div class="flex items-end gap-3">
+        <!-- 🆕 STT 버튼 (왼쪽) -->
+        <button
+          type="button"
+          :class="[
+            'flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center transition-all',
+            isListening
+              ? 'bg-red-500 hover:bg-red-600 animate-pulse'
+              : 'bg-zinc-200 hover:bg-zinc-300',
+          ]"
+          :disabled="disabled"
+          :title="isListening ? '음성 인식 중지' : '음성으로 입력'"
+          @click="toggleSpeechRecognition"
+        >
+          <Icon
+            :name="isListening ? 'mdi:microphone' : 'mdi:microphone-outline'"
+            :class="['w-6 h-6', isListening ? 'text-white' : 'text-zinc-700']"
+          />
+        </button>
+
         <!-- Textarea 영역 -->
         <textarea
           ref="taRef"
@@ -55,6 +74,8 @@
           :placeholder="
             disabled
               ? '챗봇 가동중... 잠시만 기다려주세요.'
+              : isListening
+              ? '음성을 인식하고 있습니다...'
               : '질문을 입력하세요. 무엇이 궁금한가요?'
           "
           v-model="value"
@@ -75,15 +96,18 @@
       </div>
 
       <!-- 안내 텍스트 -->
-      <div class="mt-2 text-xs text-zinc-500">
-        Enter: 전송 · Shift+Enter: 줄바꿈
+      <div class="mt-2 flex items-center justify-between text-xs text-zinc-500">
+        <span>Enter: 전송 · Shift+Enter: 줄바꿈</span>
+        <span v-if="!speechSupported" class="text-red-500">
+          음성 인식을 지원하지 않는 브라우저입니다
+        </span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, watch, onMounted, onBeforeUnmount, computed } from "vue";
 
 const emit = defineEmits<{
   (e: "send", text: string, responseType: "short" | "long"): void;
@@ -97,7 +121,12 @@ const props = withDefaults(
 const value = ref("");
 const taRef = ref<HTMLTextAreaElement | null>(null);
 const responseType = ref<"short" | "long">("short");
-const isOverflowing = ref(false); // 🆕 오버플로우 상태
+const isOverflowing = ref(false);
+
+// STT 관련 상태
+const isListening = ref(false);
+const recognition = ref<any>(null);
+const speechSupported = ref(false);
 
 // 답변 모드 변경 시 localStorage 저장
 watch(responseType, (newType) => {
@@ -110,7 +139,6 @@ function autoresize() {
   const ta = taRef.value;
   if (!ta) return;
 
-  // 높이 초기화 후 스크롤 높이 계산
   ta.style.height = "0px";
   const lineHeight = parseFloat(getComputedStyle(ta).lineHeight || "24");
   const paddingY =
@@ -118,13 +146,9 @@ function autoresize() {
     parseFloat(getComputedStyle(ta).paddingBottom || "0");
   const maxPx = props.maxRows * lineHeight + paddingY;
 
-  // 🆕 오버플로우 체크: scrollHeight가 maxPx보다 크면 오버플로우
   isOverflowing.value = ta.scrollHeight > maxPx;
-
-  // 최대 높이 제한
   ta.style.height = Math.min(ta.scrollHeight, maxPx) + "px";
 
-  // 🆕 오버플로우 시 overflow-y 설정
   if (isOverflowing.value) {
     ta.style.overflowY = "auto";
   } else {
@@ -139,6 +163,12 @@ watch(value, () => autoresize());
 function submit() {
   const v = value.value.trim();
   if (!v) return;
+
+  // 음성 인식 중이면 중지
+  if (isListening.value) {
+    stopSpeechRecognition();
+  }
+
   emit("send", v, responseType.value);
   value.value = "";
   autoresize();
@@ -155,15 +185,137 @@ function onResize() {
   autoresize();
 }
 
-// 외부에서 호출할 수 있는 포커스 메서드
 function focus() {
   taRef.value?.focus();
 }
 
-// defineExpose로 부모 컴포넌트에서 접근 가능하도록 노출
 defineExpose({
   focus,
 });
+
+// STT 기능
+function initSpeechRecognition() {
+  if (typeof window === "undefined") return;
+
+  const SpeechRecognition =
+    (window as any).SpeechRecognition ||
+    (window as any).webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    speechSupported.value = false;
+    console.warn("[STT] Speech Recognition API not supported");
+    return;
+  }
+
+  speechSupported.value = true;
+  recognition.value = new SpeechRecognition();
+
+  // 한국어 설정
+  recognition.value.lang = "ko-KR";
+
+  // 연속 인식 (계속 듣기)
+  recognition.value.continuous = true;
+
+  // 중간 결과도 반환
+  recognition.value.interimResults = true;
+
+  // 최대 대안 개수
+  recognition.value.maxAlternatives = 1;
+
+  // 이벤트 핸들러
+  recognition.value.onstart = () => {
+    console.log("[STT] Started");
+    isListening.value = true;
+  };
+
+  recognition.value.onend = () => {
+    console.log("[STT] Ended");
+    isListening.value = false;
+  };
+
+  recognition.value.onerror = (event: any) => {
+    console.error("[STT] Error:", event.error);
+    isListening.value = false;
+
+    if (event.error === "no-speech") {
+      console.warn("[STT] No speech detected");
+    } else if (event.error === "audio-capture") {
+      alert("마이크를 사용할 수 없습니다. 마이크 권한을 확인해주세요.");
+    } else if (event.error === "not-allowed") {
+      alert(
+        "마이크 접근이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요."
+      );
+    }
+  };
+
+  recognition.value.onresult = (event: any) => {
+    let interimTranscript = "";
+    let finalTranscript = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript;
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    // 최종 결과가 있으면 텍스트에 추가
+    if (finalTranscript) {
+      // 기존 텍스트가 있으면 띄어쓰기 추가
+      if (value.value.trim()) {
+        value.value += " " + finalTranscript.trim();
+      } else {
+        value.value = finalTranscript.trim();
+      }
+
+      console.log("[STT] Final:", finalTranscript);
+    }
+
+    // 중간 결과 로그 (선택사항)
+    if (interimTranscript) {
+      console.log("[STT] Interim:", interimTranscript);
+    }
+  };
+}
+
+function toggleSpeechRecognition() {
+  if (!speechSupported.value) {
+    alert(
+      "이 브라우저는 음성 인식을 지원하지 않습니다.\nChrome, Edge, Safari를 사용해주세요."
+    );
+    return;
+  }
+
+  if (isListening.value) {
+    stopSpeechRecognition();
+  } else {
+    startSpeechRecognition();
+  }
+}
+
+function startSpeechRecognition() {
+  if (!recognition.value) return;
+
+  try {
+    recognition.value.start();
+  } catch (error) {
+    console.error("[STT] Start error:", error);
+    // 이미 실행 중인 경우 무시
+  }
+}
+
+function stopSpeechRecognition() {
+  if (!recognition.value) return;
+
+  try {
+    recognition.value.stop();
+  } catch (error) {
+    console.error("[STT] Stop error:", error);
+  }
+}
 
 onMounted(() => {
   // localStorage에서 저장된 모드 복원
@@ -174,12 +326,20 @@ onMounted(() => {
     }
   }
 
+  // STT 초기화
+  initSpeechRecognition();
+
   autoresize();
   window.addEventListener("resize", onResize);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("resize", onResize);
+
+  // STT 정리
+  if (isListening.value) {
+    stopSpeechRecognition();
+  }
 });
 </script>
 
@@ -187,7 +347,7 @@ onBeforeUnmount(() => {
 /* 오버플로우 없을 때: 스크롤바 완전히 숨김 */
 .scrollbar-hidden {
   overflow-y: hidden;
-  scrollbar-width: none; /* Firefox */
+  scrollbar-width: none;
 }
 
 .scrollbar-hidden::-webkit-scrollbar {
@@ -202,7 +362,6 @@ onBeforeUnmount(() => {
   scrollbar-color: #d4d4d9 transparent; /* Firefox: thumb track */
 }
 
-/* Chrome, Edge, Safari: 스크롤바 스타일링 */
 .scrollbar-visible::-webkit-scrollbar {
   width: 8px;
 }
@@ -224,5 +383,20 @@ onBeforeUnmount(() => {
   display: none;
   width: 0;
   height: 0;
+}
+
+/* 마이크 버튼 애니메이션 */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 </style>
