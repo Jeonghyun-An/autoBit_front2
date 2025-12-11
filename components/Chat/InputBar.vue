@@ -3,7 +3,7 @@
     <div class="max-w-5xl mx-auto">
       <!-- 답변 모드 선택 버튼 (Textarea 위에 배치) -->
       <div class="mb-2 flex items-center gap-2">
-        <span class="text-xs text-zinc-600 font-medium">답변 모드:</span>
+        <span class="text-xs text-zinc-500 font-medium">답변 모드:</span>
         <div
           class="inline-flex rounded-lg border border-slate-300 bg-white overflow-hidden"
         >
@@ -43,7 +43,7 @@
 
       <!-- 채팅창과 버튼을 나란히 배치 -->
       <div class="flex items-end gap-3">
-        <!-- 🆕 STT 버튼 (왼쪽) -->
+        <!-- STT 버튼 -->
         <button
           type="button"
           :class="[
@@ -96,11 +96,24 @@
       </div>
 
       <!-- 안내 텍스트 -->
-      <div class="mt-2 flex items-center justify-between text-xs text-zinc-500">
+      <div
+        class="mt-2 flex items-center justify-between text-xs text-zinc-500 text-opacity-90"
+      >
+        <div class="flex items-center gap-2">
+          <span>STT 언어:</span>
+          <select
+            v-model="sttLang"
+            class="text-xs px-1.5 py-0.5 rounded border border-zinc-300 bg-zinc-100 text-zinc-500 focus:outline-none focus:ring-1 focus:ring-slate-900 hover:bg-white"
+            @change="onLanguageChange"
+          >
+            <option value="ko-KR">한국어</option>
+            <option value="en-US">English</option>
+          </select>
+          <span v-if="!speechSupported" class="text-zinc-300">
+            음성 인식을 지원하지 않는 브라우저입니다
+          </span>
+        </div>
         <span>Enter: 전송 · Shift+Enter: 줄바꿈</span>
-        <span v-if="!speechSupported" class="text-red-500">
-          음성 인식을 지원하지 않는 브라우저입니다
-        </span>
       </div>
     </div>
   </div>
@@ -127,11 +140,19 @@ const isOverflowing = ref(false);
 const isListening = ref(false);
 const recognition = ref<any>(null);
 const speechSupported = ref(false);
+const sttLang = ref<string>("ko-KR");
 
 // 답변 모드 변경 시 localStorage 저장
 watch(responseType, (newType) => {
   if (typeof window !== "undefined") {
     localStorage.setItem("rag_response_type", newType);
+  }
+});
+
+// STT 언어 변경 시 localStorage 저장
+watch(sttLang, (newLang) => {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("rag_stt_lang", newLang);
   }
 });
 
@@ -210,8 +231,8 @@ function initSpeechRecognition() {
   speechSupported.value = true;
   recognition.value = new SpeechRecognition();
 
-  // 한국어 설정
-  recognition.value.lang = "ko-KR";
+  // 언어 설정 (동적)
+  recognition.value.lang = sttLang.value;
 
   // 연속 인식 (계속 듣기)
   recognition.value.continuous = true;
@@ -224,7 +245,7 @@ function initSpeechRecognition() {
 
   // 이벤트 핸들러
   recognition.value.onstart = () => {
-    console.log("[STT] Started");
+    console.log("[STT] Started with lang:", sttLang.value);
     isListening.value = true;
   };
 
@@ -272,8 +293,9 @@ function initSpeechRecognition() {
       }
 
       console.log("[STT] Final:", finalTranscript);
+      autoresize();
     }
-    autoresize();
+
     // 중간 결과 로그 (선택사항)
     if (interimTranscript) {
       console.log("[STT] Interim:", interimTranscript);
@@ -300,10 +322,11 @@ function startSpeechRecognition() {
   if (!recognition.value) return;
 
   try {
+    // 시작 전 언어 업데이트
+    recognition.value.lang = sttLang.value;
     recognition.value.start();
   } catch (error) {
     console.error("[STT] Start error:", error);
-    // 이미 실행 중인 경우 무시
   }
 }
 
@@ -317,12 +340,31 @@ function stopSpeechRecognition() {
   }
 }
 
+// 언어 변경 핸들러
+function onLanguageChange() {
+  console.log("[STT] Language changed to:", sttLang.value);
+
+  // 음성 인식 중이면 재시작
+  if (isListening.value) {
+    stopSpeechRecognition();
+    setTimeout(() => {
+      startSpeechRecognition();
+    }, 100);
+  }
+}
+
 onMounted(() => {
   // localStorage에서 저장된 모드 복원
   if (typeof window !== "undefined") {
     const saved = localStorage.getItem("rag_response_type");
     if (saved === "short" || saved === "long") {
       responseType.value = saved;
+    }
+
+    // STT 언어 복원
+    const savedSttLang = localStorage.getItem("rag_stt_lang");
+    if (savedSttLang) {
+      sttLang.value = savedSttLang;
     }
   }
 
@@ -358,8 +400,8 @@ onBeforeUnmount(() => {
 /* 오버플로우 있을 때: 스크롤바 표시 */
 .scrollbar-visible {
   overflow-y: auto;
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: #d4d4d9 transparent; /* Firefox: thumb track */
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d9 transparent;
 }
 
 .scrollbar-visible::-webkit-scrollbar {
@@ -371,12 +413,12 @@ onBeforeUnmount(() => {
 }
 
 .scrollbar-visible::-webkit-scrollbar-thumb {
-  background: #d4d4d9; /* zinc-400 */
+  background: #d4d4d9;
   border-radius: 4px;
 }
 
 .scrollbar-visible::-webkit-scrollbar-thumb:hover {
-  background: #a1a1aa; /* zinc-500 */
+  background: #a1a1aa;
 }
 
 .scrollbar-visible::-webkit-scrollbar-button {
