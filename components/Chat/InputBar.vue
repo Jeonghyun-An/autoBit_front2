@@ -330,9 +330,14 @@ async function transcribeAudio(audioBlob: Blob) {
     formData.append("language", sttLang.value); // ko 또는 en
     formData.append("use_nuclear_context", "true"); // 원자력 전문 용어 사용
 
-    const response = await $fetch<STTResponse>("/rag/stt/transcribe", {
+    const response = await $fetch<any>("/rag/stt/transcribe", {
       method: "POST",
       body: formData,
+      baseURL: "",
+      responseType: "json",
+    }).catch(async (e) => {
+      // 응답이 text로 왔을 가능성도 있어 디버깅용으로 보강
+      throw e;
     });
 
     console.log("[STT] Response:", response); // 🔍 디버깅
