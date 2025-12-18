@@ -54,9 +54,7 @@
             (disabled || isTranscribing) && 'opacity-50 cursor-not-allowed',
           ]"
           :disabled="disabled || isTranscribing"
-          :title="
-            isListening ? '녹음 중지 (Whisper)' : '음성으로 입력 (Whisper)'
-          "
+          :title="isListening ? '음성 입력 중지' : '음성 입력 시작'"
           @click="toggleSpeechRecognition"
         >
           <Icon
@@ -78,9 +76,9 @@
             disabled
               ? '챗봇 가동중... 잠시만 기다려주세요.'
               : isListening
-              ? '녹음 중... (버튼 클릭하여 중지)'
+              ? '듣고 있어요... 다시 누르면 종료돼요.'
               : isTranscribing
-              ? '음성 변환 중...'
+              ? '음성을 텍스트로 변환 중...'
               : '질문을 입력하세요. 무엇이 궁금한가요?'
           "
           v-model="value"
@@ -117,7 +115,7 @@
           <span v-if="!microphoneSupported" class="text-zinc-500 text-xs">
             마이크를 사용할 수 없습니다
           </span>
-          <span v-else-if="isTranscribing" class="ttext-zinc-500 font-medium">
+          <span v-else-if="isTranscribing" class="text-zinc-500 font-medium">
             음성 변환 중...
           </span>
           <span v-else-if="sttError" class="text-zinc-500">
