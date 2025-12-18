@@ -4,7 +4,14 @@
     style="scrollbar-gutter: stable"
   >
     <div class="p-3 pr-1">
-      <div class="text-xs font-semibold text-zinc-600 mb-2">지식저장소</div>
+      <button
+        type="button"
+        class="w-full text-left text-xs py-1.5 px-2 pl-0 mb-2 font-semibold text-zinc-600 border-none hover:bg-zinc-50 transition-colors"
+        @click="selectAllKnowledge"
+        title="지식저장소의 모든 문서를 선택합니다"
+      >
+        지식저장소
+      </button>
 
       <!-- Theme 1: 협정 및 법령 (data_code = theme1) -->
       <div class="border-b border-zinc-200">
@@ -619,6 +626,7 @@ const emit = defineEmits<{
     e: "category-selected",
     filter: { code?: string; detail?: string; sub?: string }
   ): void;
+  (e: "select-all-knowledge"): void;
 }>();
 
 const expandedThemes = reactive<Record<string, boolean>>({
@@ -672,5 +680,8 @@ const selectCategory = (code: string, detail?: string, sub?: string) => {
     }, sub=${sub || "N/A"}`
   );
   emit("category-selected", { code, detail, sub });
+};
+const selectAllKnowledge = () => {
+  emit("select-all-knowledge");
 };
 </script>

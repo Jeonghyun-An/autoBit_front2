@@ -340,8 +340,6 @@ async function transcribeAudio(audioBlob: Blob) {
       throw e;
     });
 
-    console.log("[STT] Response:", response); // 🔍 디버깅
-
     // 응답 구조 검증
     if (!response || typeof response !== "object") {
       throw new Error("Invalid response format");

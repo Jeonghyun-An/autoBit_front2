@@ -64,35 +64,37 @@
       <!-- 선택된 문서 태그 + 검색창 -->
       <div class="p-3 py-2 border-b border-zinc-200 bg-zinc-50 flex-shrink-0">
         <!-- 선택된 문서 태그 -->
-        <div
-          v-if="selectedDocs.length"
-          class="mb-2 pr-0 max-h-[135px] min-h-[110px] overflow-y-auto scrollbar-zinc gap-2"
-          style="scrollbar-gutter: stable"
-        >
+        <!--
           <div
-            v-for="d in selectedDocs"
-            :key="d.doc_id"
-            class="inline-flex items-center max-w-full px-3 py-1 rounded-full bg-zinc-900/5 border border-zinc-300 text-xs"
+            v-if="selectedDocs.length"
+            class="mb-2 pr-0 max-h-[135px] min-h-[110px] overflow-y-auto scrollbar-zinc gap-2"
+            style="scrollbar-gutter: stable"
           >
-            <span class="truncate max-w-[250px]">
-              {{ d.title || d.doc_id }}
-            </span>
-            <button
-              type="button"
-              class="ml-1 text-zinc-500 hover:text-zinc-800 max-h"
-              @click.stop="toggleSelect(d.doc_id)"
-              title="선택 해제"
+            <div
+              v-for="d in selectedDocs"
+              :key="d.doc_id"
+              class="inline-flex items-center max-w-full px-3 py-1 rounded-full bg-zinc-900/5 border border-zinc-300 text-xs"
             >
-              ✕
-            </button>
+              <span class="truncate max-w-[250px]">
+                {{ d.title || d.doc_id }}
+              </span>
+              <button
+                type="button"
+                class="ml-1 text-zinc-500 hover:text-zinc-800 max-h"
+                @click.stop="toggleSelect(d.doc_id)"
+                title="선택 해제"
+              >
+                ✕
+              </button>
+            </div>
           </div>
-        </div>
-        <div
-          v-else
-          class="mb-2 min-h-[110px] text-xs text-zinc-400 items-center flex justify-center"
-        >
-          전체 문서에서 검색합니다.
-        </div>
+          <div
+            v-else
+            class="mb-2 min-h-[110px] text-xs text-zinc-400 items-center flex justify-center"
+          >
+            전체 문서에서 검색합니다.
+          </div>
+        -->
         <!-- 검색창 -->
         <div class="relative">
           <Icon
@@ -116,14 +118,24 @@
             <span class="text-[11px] text-zinc-500">
               선택된 문서 {{ selectedDocIds.length }}개
             </span>
-            <button
-              type="button"
-              class="px-2 py-1 text-[11px] rounded-md border border-zinc-300 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed"
-              @click="clearSelectedDocs"
-              :disabled="selectedDocIds.length === 0"
-            >
-              선택 초기화
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="px-2 py-1 text-[10px] rounded-md border border-zinc-300 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                @click="selectAllDocs"
+                :disabled="filteredDocs.length === 0 || allDocsSelected"
+              >
+                {{ allDocsSelected ? "✓ 전체 선택됨" : "전체 선택" }}
+              </button>
+              <button
+                type="button"
+                class="px-2 py-1 text-[10px] rounded-md border border-zinc-300 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                @click="clearSelectedDocs"
+                :disabled="selectedDocIds.length === 0"
+              >
+                선택 초기화
+              </button>
+            </div>
           </div>
           <div
             v-if="!paginatedDocs.length"
@@ -203,7 +215,10 @@
       </div>
 
       <!--  문서 카테고리 아코디언 (KnowledgeMenu) -->
-      <KnowledgeMenu @category-selected="onCategorySelected" />
+      <KnowledgeMenu
+        @category-selected="onCategorySelected"
+        @select-all-knowledge="onSelectAllKnowledge"
+      />
     </div>
 
     <!--  오른쪽 채팅 영역 (70%) -->
@@ -486,7 +501,23 @@ const selectedDocs = computed(() =>
 function toggleSelect(docId: string) {
   chatStore.toggleSelectedDoc(docId);
 }
+// docs.value 기준 (전체 문서)
+const allDocsSelected = computed(() => {
+  if (docs.value.length === 0) return false;
 
+  return (
+    docs.value.length === selectedDocIds.value.length &&
+    docs.value.every((d) => selectedDocIds.value.includes(d.doc_id))
+  );
+});
+
+// 전체 문서 선택
+function selectAllDocs() {
+  const allDocIds = docs.value.map((d) => d.doc_id);
+  chatStore.setSelectedDocs(allDocIds);
+
+  console.log(`[Chat] Selected ALL ${allDocIds.length} documents`);
+}
 // 선택 초기화 버튼
 function clearSelectedDocs() {
   chatStore.setSelectedDocs([]);
@@ -494,6 +525,49 @@ function clearSelectedDocs() {
 
 function goChunks(d: DocItem) {
   router.push(`/chunks/${encodeURIComponent(d.doc_id)}`);
+}
+// 지식저장소 전체 선택 핸들러
+async function onSelectAllKnowledge() {
+  console.log("[Chat] Select ALL knowledge documents");
+
+  try {
+    // 모든 테마 코드
+    const allThemeCodes = [
+      "theme1", // 협정 및 법령
+      "theme2", // IAEA 문서
+      "theme3", // 국제기구 문서
+      "theme4", // KINAC 자료
+      "theme6", // 타국 규제정보
+      "theme7", // 주요국 규제정보
+      "theme8", // 기술동향
+      "theme9", // KINAC 대외협력
+    ];
+
+    // 모든 테마의 문서 ID 수집
+    const allDocIds: Set<string> = new Set();
+
+    for (const themeCode of allThemeCodes) {
+      try {
+        const docIds = await listDocsByCode({ code: themeCode });
+        docIds.forEach((id) => allDocIds.add(id));
+      } catch (e) {
+        console.warn(`[Chat] Failed to fetch ${themeCode}:`, e);
+      }
+    }
+
+    const uniqueIds = Array.from(allDocIds);
+
+    // 기존 선택 + 새로운 문서들
+    const currentSelected = new Set(selectedDocIds.value);
+    uniqueIds.forEach((id) => currentSelected.add(id));
+
+    chatStore.setSelectedDocs(Array.from(currentSelected));
+
+    console.log(`[Chat] Selected ALL knowledge: ${uniqueIds.length} documents`);
+  } catch (e) {
+    console.error("[Chat] onSelectAllKnowledge failed:", e);
+    alert("지식저장소 전체 선택 중 오류가 발생했습니다.");
+  }
 }
 
 /**
