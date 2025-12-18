@@ -6,11 +6,15 @@
     <div class="p-3 pr-1">
       <button
         type="button"
-        class="w-full text-left text-xs py-1.5 px-2 pl-0 mb-2 font-semibold text-zinc-600 border-none hover:bg-zinc-50 transition-colors"
+        class="w-full text-left text-xs py-1.5 px-2 pl-0 mb-2 font-semibold text-zinc-600 border-none hover:bg-zinc-50 transition-colors flex items-center justify-between group"
         @click="selectAllKnowledge"
         title="지식저장소의 모든 문서를 선택합니다"
       >
-        지식저장소
+        <span>지식저장소</span>
+        <Icon
+          name="bi:check2-all"
+          class="opacity-0 group-hover:opacity-100 transition-opacity color-zinc-400 ml-1 w-4 h-4"
+        ></Icon>
       </button>
 
       <!-- Theme 1: 협정 및 법령 (data_code = theme1) -->
