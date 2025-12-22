@@ -709,7 +709,7 @@ const confirmDeleteSession = (sessionId: string) => {
 
 const onSend = async (
   query: string,
-  responseType: "short" | "long" = "short"
+  responseType: "short" | "long" | "ultra_long" = "short"
 ) => {
   // 1) 보내는 시점의 세션 ID를 고정
   const sessionIdAtSend = chatStore.currentSessionId.value;

@@ -31,12 +31,31 @@
           >
             장문형
           </button>
+          <!-- 초장문형 -->
+          <button
+            type="button"
+            :class="[
+              'px-4 py-1.5 text-sm font-medium transition-colors border-l border-slate-300',
+              responseType === 'ultra_long'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 hover:bg-slate-100',
+            ]"
+            @click="responseType = 'ultra_long'"
+            title="최대 100개 청크, 30K 토큰 활용"
+          >
+            <span class="flex items-center gap-1">
+              초장문형
+              <Icon name="heroicons:sparkles" class="w-3 h-3" />
+            </span>
+          </button>
         </div>
         <span class="text-xs text-zinc-500">
           {{
             responseType === "short"
               ? "(간결한 답변, 빠른 응답)"
-              : "(상세한 답변, 더 많은 컨텍스트)"
+              : responseType === "long"
+              ? "(상세한 답변, 더 많은 컨텍스트)"
+              : "(초상세 분석, 최대 청크 활용)"
           }}
         </span>
       </div>
@@ -79,6 +98,8 @@
               ? '듣고 있어요... 다시 누르면 종료돼요.'
               : isTranscribing
               ? '음성을 텍스트로 변환 중...'
+              : responseType === 'ultra_long'
+              ? '상세한 질문을 입력하세요 (초장문 모드)'
               : '질문을 입력하세요. 무엇이 궁금한가요?'
           "
           v-model="value"
@@ -132,7 +153,11 @@
 import { ref, watch, onMounted, onBeforeUnmount } from "vue";
 
 const emit = defineEmits<{
-  (e: "send", text: string, responseType: "short" | "long"): void;
+  (
+    e: "send",
+    text: string,
+    responseType: "short" | "long" | "ultra_long"
+  ): void;
   (e: "height-changed", height: number): void;
 }>();
 const props = withDefaults(
@@ -142,7 +167,7 @@ const props = withDefaults(
 
 const value = ref("");
 const taRef = ref<HTMLTextAreaElement | null>(null);
-const responseType = ref<"short" | "long">("short");
+const responseType = ref<"short" | "long" | "ultra_long">("short");
 const isOverflowing = ref(false);
 
 // STT 관련 상태 (Whisper 기반)

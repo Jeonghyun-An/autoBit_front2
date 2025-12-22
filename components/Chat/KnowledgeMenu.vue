@@ -21,7 +21,7 @@
             type="button"
             class="px-2 py-1 hover:bg-zinc-100 rounded transition-colors flex-shrink-0 ml-2"
             @click="isExpanded = false"
-            title="닫기"
+            title="축소"
           >
             <Icon name="lucide:minimize-2" class="w-4 h-4 text-zinc-500" />
           </button>

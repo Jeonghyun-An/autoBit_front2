@@ -381,13 +381,18 @@ export function useApi() {
     history: { role: "user" | "assistant"; content: string }[],
     query: string,
     docIds?: string[],
-    responseType: "short" | "long" = "short"
+    responseType: "short" | "long" | "ultra_long" = "short"
   ) {
+    const actualResponseType: "short" | "long" =
+      responseType === "ultra_long" ? "long" : responseType;
+
+    const isLongContext = responseType === "ultra_long";
     const body: any = {
       question: query,
       top_k: 3,
       history: history.map((m) => ({ role: m.role, content: m.content })),
-      response_type: responseType,
+      response_type: actualResponseType, // "short" | "long"
+      long_context: isLongContext, // true | false
     };
 
     // 선택된 문서가 있으면 doc_ids 전달
