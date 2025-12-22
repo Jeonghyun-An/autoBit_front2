@@ -19,15 +19,17 @@
     </div> -->
     <!--  왼쪽 문서 목록 영역 (30%) -->
     <div
-      class="w-[30%] min-w-[260px] max-w-sm border-r border-zinc-200 bg-white flex flex-col"
+      class="w-[30%] min-w-[260px] max-w-sm border-r border-zinc-200 bg-white flex flex-col relative"
     >
       <!--  세션 관리 영역 -->
-      <div class="p-3 border-b border-zinc-200 bg-zinc-50 flex-shrink-0">
+      <div
+        class="p-3 pr-0 pb-2 border-b border-zinc-200 bg-zinc-50 flex-shrink-0"
+      >
         <div class="flex items-center justify-between mb-2">
           <span class="text-xs font-semibold text-zinc-600">대화 기록</span>
           <button
             type="button"
-            class="px-2 py-1 text-xs rounded-md bg-slate-900 text-white hover:bg-slate-800"
+            class="px-2 py-1 mr-3 text-xs rounded-md bg-slate-900 text-white hover:bg-slate-800"
             @click="createNewSession"
           >
             + 새 대화
@@ -35,7 +37,10 @@
         </div>
 
         <!-- 세션 목록 -->
-        <div class="space-y-1 max-h-32 overflow-y-auto scrollbar-zinc">
+        <div
+          class="space-y-1 max-h-32 overflow-y-auto scrollbar-zinc"
+          style="scrollbar-gutter: stable"
+        >
           <div
             v-for="session in sortedSessions"
             :key="session.id"
@@ -62,9 +67,9 @@
       </div>
 
       <!-- 선택된 문서 태그 + 검색창 -->
-      <div class="p-3 py-2 border-b border-zinc-200 bg-zinc-50 flex-shrink-0">
-        <!-- 선택된 문서 태그 -->
-        <!--
+      <!-- <div class="p-3 py-2 border-b border-zinc-200 bg-zinc-50 flex-shrink-0"> -->
+      <!-- 선택된 문서 태그 -->
+      <!--
           <div
             v-if="selectedDocs.length"
             class="mb-2 pr-0 max-h-[135px] min-h-[110px] overflow-y-auto scrollbar-zinc gap-2"
@@ -95,8 +100,8 @@
             전체 문서에서 검색합니다.
           </div>
         -->
-        <!-- 검색창 -->
-        <div class="relative">
+      <!-- 검색창 -->
+      <!-- <div class="relative">
           <Icon
             name="lucide:search"
             class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
@@ -107,16 +112,20 @@
             placeholder="문서 검색..."
             class="w-full pl-8 pr-3 py-2 rounded-full border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900"
           />
-        </div>
-      </div>
+        </div> -->
+      <!-- </div> -->
 
       <!--  문서 리스트 (페이징) -->
       <div class="flex-shrink-0">
-        <div class="p-3 pr-1 space-y-1">
+        <div class="p-2 pb-1 pr-1 space-y-1">
           <!-- 선택 개수 + 초기화 버튼 -->
-          <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center justify-between mb-1">
             <span class="text-[11px] text-zinc-500">
-              선택된 문서 {{ selectedDocIds.length }}개
+              선택된 문서
+              <span class="font-semibold text-slate-800">{{
+                selectedDocIds.length
+              }}</span
+              >개
             </span>
             <div class="flex items-center gap-2">
               <button
@@ -190,7 +199,7 @@
         <!--  페이징 컨트롤 -->
         <div
           v-if="totalPages > 1"
-          class="px-3 pb-3 flex items-center justify-center gap-2"
+          class="px-3 pb-1 flex items-center justify-center gap-2"
         >
           <button
             type="button"
@@ -216,6 +225,7 @@
 
       <!--  문서 카테고리 아코디언 (KnowledgeMenu) -->
       <KnowledgeMenu
+        :selected-count="selectedDocIds.length"
         @category-selected="onCategorySelected"
         @select-all-knowledge="onSelectAllKnowledge"
       />
