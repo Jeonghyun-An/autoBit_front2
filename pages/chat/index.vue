@@ -226,6 +226,7 @@
       <!--  문서 카테고리 아코디언 (KnowledgeMenu) -->
       <KnowledgeMenu
         :selected-count="selectedDocIds.length"
+        :selected-categories="selectedCategories"
         @category-selected="onCategorySelected"
         @select-all-knowledge="onSelectAllKnowledge"
       />
@@ -580,12 +581,96 @@ async function onSelectAllKnowledge() {
   }
 }
 
-/**
- * 카테고리 선택:
- * - 백엔드에서 해당 카테고리 doc_ids 가져옴
- * - 그 doc_ids에 대해 "토글 선택"만 수행
- * - 리스트/검색에는 전혀 영향 X (항상 전체 docs 기준)
- */
+const docCategoryMap = ref<
+  Map<string, { code: string; detail?: string; sub?: string }>
+>(new Map());
+
+const selectedCategories = computed(() => {
+  const categories = new Set<string>();
+
+  for (const docId of selectedDocIds.value) {
+    const category = docCategoryMap.value.get(docId);
+    if (!category) continue;
+
+    const { code, detail, sub } = category;
+
+    if (code && !detail && !sub) {
+      categories.add(code);
+    } else if (code && detail && !sub) {
+      categories.add(`${code}::${detail}`);
+      categories.add(code);
+    } else if (code && detail && sub) {
+      categories.add(`${code}::${detail}::${sub}`);
+      categories.add(`${code}::${detail}`);
+      categories.add(code);
+    }
+  }
+
+  return categories;
+});
+
+// docs watch 추가 (문서 목록이 로드될 때)
+watch(
+  docs,
+  (newDocs) => {
+    console.log("[Debug] docs updated, count:", newDocs.length);
+    const newMap = new Map();
+    for (const doc of newDocs) {
+      if (doc.data_code) {
+        newMap.set(doc.doc_id, {
+          code: doc.data_code,
+          detail: doc.data_detail_code || undefined,
+          sub: doc.data_sub_code || undefined,
+        });
+      }
+    }
+    console.log("[Debug] docCategoryMap created, size:", newMap.size);
+    docCategoryMap.value = newMap;
+  },
+  { immediate: true }
+);
+
+// async function onCategorySelected(filter: {
+//   code?: string;
+//   detail?: string;
+//   sub?: string;
+// }) {
+//   console.log("[Chat] Category selected:", filter);
+
+//   if (!filter.code && !filter.detail && !filter.sub) {
+//     return;
+//   }
+
+//   try {
+//     const docIds = await listDocsByCode({
+//       code: filter.code,
+//       detail: filter.detail,
+//       sub: filter.sub,
+//     });
+
+//     const uniq = Array.from(new Set(docIds));
+
+//     if (uniq.length === 0) {
+//       console.log(`[Chat] Empty category, skipping toggle`);
+//       return;
+//     }
+
+//     const current = new Set(selectedDocIds.value);
+//     const allSelected = uniq.every((id) => current.has(id));
+
+//     if (allSelected) {
+//       uniq.forEach((id) => current.delete(id));
+//     } else {
+//       uniq.forEach((id) => current.add(id));
+//     }
+
+//     chatStore.setSelectedDocs(Array.from(current));
+//     // selectedCategories는 자동 재계산됨!
+//   } catch (e) {
+//     console.error("[Chat] onCategorySelected failed:", e);
+//     alert("문서 카테고리 선택 중 오류가 발생했습니다.");
+//   }
+// }
 async function onCategorySelected(filter: {
   code?: string;
   detail?: string;
@@ -593,10 +678,7 @@ async function onCategorySelected(filter: {
 }) {
   console.log("[Chat] Category selected:", filter);
 
-  // 필터 정보가 없으면 아무 것도 안 함 (여기서 전체 해제 로직 넣을 수도 있음)
   if (!filter.code && !filter.detail && !filter.sub) {
-    // 선택만 싹 지우고 싶으면:
-    // chatStore.setSelectedDocs([]);
     return;
   }
 
@@ -608,33 +690,62 @@ async function onCategorySelected(filter: {
     });
 
     const uniq = Array.from(new Set(docIds));
-    const current = new Set(selectedDocIds.value);
 
-    // 카테고리에 속한 문서가 모두 이미 선택되어 있으면 → 해제
-    const allSelected = uniq.length > 0 && uniq.every((id) => current.has(id));
+    console.log("[Debug] Selected docs:", uniq); // ← 문서 ID 확인
+
+    if (uniq.length === 0) {
+      console.log(`[Chat] Empty category, skipping toggle`);
+      return;
+    }
+
+    const current = new Set(selectedDocIds.value);
+    const allSelected = uniq.every((id) => current.has(id));
 
     if (allSelected) {
-      // 이미 다 선택되어 있으면 해당 카테고리 문서만 해제
       uniq.forEach((id) => current.delete(id));
     } else {
-      // 일부라도 안 선택되어 있으면 카테고리 문서 전체 선택
       uniq.forEach((id) => current.add(id));
     }
+
     chatStore.setSelectedDocs(Array.from(current));
 
-    console.log(
-      `[Chat] Category toggle: ${uniq.length} docs, allSelected=${allSelected}`
-    );
+    // ⭐ 중요: computed가 제대로 재계산되는지 확인
+    nextTick(() => {
+      console.log("[Debug] After selection:");
+      console.log("  selectedDocIds:", selectedDocIds.value);
+      console.log(
+        "  selectedCategories:",
+        Array.from(selectedCategories.value)
+      );
+
+      // 특정 문서의 카테고리 정보 확인
+      if (uniq[0]) {
+        const cat = docCategoryMap.value.get(uniq[0]);
+        console.log("  First doc category:", cat);
+      }
+    });
   } catch (e) {
     console.error("[Chat] onCategorySelected failed:", e);
     alert("문서 카테고리 선택 중 오류가 발생했습니다.");
   }
 }
-
 //  onMounted - 메타 프리로드 제거
 onMounted(async () => {
   await fetchDocs();
   window.addEventListener("click", onGlobalClick);
+  setTimeout(() => {
+    console.log("=== DEBUG INFO ===");
+    console.log("docs.value.length:", docs.value.length);
+    console.log("docCategoryMap.value.size:", docCategoryMap.value.size);
+    console.log("selectedDocIds.value:", selectedDocIds.value);
+    console.log("selectedCategories.value:", selectedCategories.value);
+
+    // 첫 번째 문서 확인
+    if (docs.value[0]) {
+      console.log("First doc:", docs.value[0]);
+      console.log("Has data_code?", !!docs.value[0].data_code);
+    }
+  }, 5000);
 });
 
 onBeforeUnmount(() => {

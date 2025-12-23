@@ -53,6 +53,7 @@
             :expanded-themes="expandedThemes"
             :expanded-sub-menus="expandedSubMenus"
             :sc-years="scYears"
+            :selected-categories="selectedCategories"
             @toggle-theme="toggleTheme"
             @toggle-sub-menu="toggleSubMenu"
             @select-category="selectCategory"
@@ -103,6 +104,7 @@
           :expanded-themes="expandedThemes"
           :expanded-sub-menus="expandedSubMenus"
           :sc-years="scYears"
+          :selected-categories="selectedCategories"
           @toggle-theme="toggleTheme"
           @toggle-sub-menu="toggleSubMenu"
           @select-category="selectCategory"
@@ -119,6 +121,7 @@ import CategoryTree from "./CategoryTree.vue";
 
 defineProps<{
   selectedCount?: number;
+  selectedCategories: Set<string>; // 추가: 선택된 카테고리 상태
 }>();
 
 const emit = defineEmits<{

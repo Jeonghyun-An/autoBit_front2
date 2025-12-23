@@ -31,6 +31,9 @@ export type DocItem = {
   original_key?: string; // uploaded/originals/xxx.ext (있을 경우)
   original_name?: string; // 원본 파일명(예: .docx)
   is_pdf_original?: boolean; // 원본 자체가 pdf인지
+  data_code?: string; // 예: "theme4"
+  data_detail_code?: string; // 예: "theme4-1"
+  data_sub_code?: string; // 예: "theme4-4-1"
 };
 
 export function useApi() {
@@ -143,6 +146,9 @@ export function useApi() {
           original_name?: string;
           is_pdf_original?: boolean;
           uploaded_at?: string;
+          data_code?: string;
+          data_detail_code?: string;
+          data_sub_code?: string;
         }>;
       };
       return (j.docs || []).map((d) => ({
@@ -155,6 +161,9 @@ export function useApi() {
         original_key: d.original_key,
         original_name: d.original_name,
         is_pdf_original: d.is_pdf_original,
+        data_code: d.data_code,
+        data_detail_code: d.data_detail_code,
+        data_sub_code: d.data_sub_code,
       })) as DocItem[];
     };
     try {
@@ -208,6 +217,9 @@ export function useApi() {
         uploaded_at: undefined,
         pdf_key: k,
         original_key: undefined,
+        data_code: undefined,
+        data_detail_code: undefined,
+        data_sub_code: undefined,
       } as DocItem;
     });
     _docsCache = {
