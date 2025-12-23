@@ -587,6 +587,7 @@ const docCategoryMap = ref<
 
 const selectedCategories = computed(() => {
   const categories = new Set<string>();
+  const categoryDocCounts = new Map<string, Set<string>>();
 
   for (const docId of selectedDocIds.value) {
     const category = docCategoryMap.value.get(docId);
@@ -594,15 +595,45 @@ const selectedCategories = computed(() => {
 
     const { code, detail, sub } = category;
 
-    if (code && !detail && !sub) {
-      categories.add(code);
-    } else if (code && detail && !sub) {
-      categories.add(`${code}::${detail}`);
-      categories.add(code);
-    } else if (code && detail && sub) {
+    if (code && detail && sub) {
       categories.add(`${code}::${detail}::${sub}`);
-      categories.add(`${code}::${detail}`);
-      categories.add(code);
+    }
+
+    // 카테고리별 선택된 문서 추적
+    if (code) {
+      if (!categoryDocCounts.has(code)) categoryDocCounts.set(code, new Set());
+      categoryDocCounts.get(code)!.add(docId);
+    }
+
+    if (code && detail) {
+      const detailKey = `${code}::${detail}`;
+      if (!categoryDocCounts.has(detailKey))
+        categoryDocCounts.set(detailKey, new Set());
+      categoryDocCounts.get(detailKey)!.add(docId);
+    }
+  }
+
+  // 전체 선택 여부 확인
+  for (const [catKey, selectedDocs] of categoryDocCounts.entries()) {
+    // 해당 카테고리의 전체 문서 개수 계산
+    let totalCount = 0;
+    const parts = catKey.split("::");
+
+    for (const [docId, cat] of docCategoryMap.value.entries()) {
+      if (parts.length === 1 && cat.code === parts[0]) {
+        totalCount++;
+      } else if (
+        parts.length === 2 &&
+        cat.code === parts[0] &&
+        cat.detail === parts[1]
+      ) {
+        totalCount++;
+      }
+    }
+
+    // 모든 문서가 선택되었을 때만 부모 추가
+    if (totalCount > 0 && selectedDocs.size === totalCount) {
+      categories.add(catKey);
     }
   }
 
