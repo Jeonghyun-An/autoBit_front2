@@ -37,16 +37,13 @@
             :class="[
               'px-4 py-1.5 text-sm font-medium transition-colors border-l border-slate-300',
               responseType === 'ultra_long'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-slate-900 text-white'
                 : 'bg-white text-slate-700 hover:bg-slate-100',
             ]"
             @click="responseType = 'ultra_long'"
-            title="최대 100개 청크, 30K 토큰 활용"
+            title="28K 토큰 내 최다 청크 활용"
           >
-            <span class="flex items-center gap-1">
-              초장문형
-              <Icon name="heroicons:sparkles" class="w-3 h-3" />
-            </span>
+            <span class="flex items-center gap-1"> 초장문형 </span>
           </button>
         </div>
         <span class="text-xs text-zinc-500">

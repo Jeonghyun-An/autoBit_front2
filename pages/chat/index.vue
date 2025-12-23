@@ -204,7 +204,7 @@
           <button
             type="button"
             :disabled="currentPage === 1"
-            class="p-1 rounded hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center"
+            class="p-1 rounded hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-default disabled:hover:bg-transparent flex items-center justify-center"
             @click="prevPage"
           >
             <Icon name="lucide:chevron-left" class="w-4 h-4" />
@@ -215,7 +215,7 @@
           <button
             type="button"
             :disabled="currentPage === totalPages"
-            class="p-1 rounded hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center"
+            class="p-1 rounded hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-default disabled:hover:bg-transparent flex items-center justify-center"
             @click="nextPage"
           >
             <Icon name="lucide:chevron-right" class="w-4 h-4" />
