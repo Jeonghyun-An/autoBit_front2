@@ -45,7 +45,7 @@
 
       <!-- 확장 모드 콘텐츠 -->
       <div
-        class="flex-1 min-h-0 overflow-y-auto scrollbar-zinc"
+        class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-zinc"
         style="scrollbar-gutter: stable"
       >
         <div class="p-3 pr-1">
@@ -67,10 +67,10 @@
   <!-- 일반 모드 -->
   <div
     v-if="!isExpanded"
-    class="flex-1 min-h-0 border-t border-zinc-200 bg-white flex flex-col"
+    class="flex-1 min-h-0 border-zinc-200 bg-white flex flex-col"
   >
     <!-- 고정 헤더 영역(확장하기)-->
-    <div class="p-3 pr-1 pt-1 pb-0 bg-white sticky top-0 z-10">
+    <div class="p-1 pb-0 bg-white sticky top-0 z-10">
       <!-- 상단: 확장 버튼 -->
       <div class="flex justify-end mb-0.5">
         <button
@@ -84,7 +84,7 @@
       </div>
     </div>
     <div
-      class="flex-1 min-h-0 overflow-y-auto scrollbar-zinc"
+      class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-zinc"
       style="scrollbar-gutter: stable"
     >
       <button
@@ -99,7 +99,7 @@
           class="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 ml-1 w-4 h-4"
         />
       </button>
-      <div class="p-3 pr-1 pt-0">
+      <div class="p-3 pr-1 py-0">
         <CategoryTree
           :expanded-themes="expandedThemes"
           :expanded-sub-menus="expandedSubMenus"

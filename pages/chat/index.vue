@@ -114,10 +114,16 @@
           />
         </div> -->
       <!-- </div> -->
-
+      <!--  문서 카테고리 아코디언 (KnowledgeMenu) -->
+      <KnowledgeMenu
+        :selected-count="selectedDocIds.length"
+        :selected-categories="selectedCategories"
+        @category-selected="onCategorySelected"
+        @select-all-knowledge="onSelectAllKnowledge"
+      />
       <!--  문서 리스트 (페이징) -->
-      <div class="flex-shrink-0">
-        <div class="p-2 pb-1 pr-1 space-y-1">
+      <div class="flex-shrink-0 overflow-x-hidden">
+        <div class="p-3 py-1 pr-1 space-y-1 border-t border-zinc-200">
           <!-- 선택 개수 + 초기화 버튼 -->
           <div class="flex items-center justify-between mb-1">
             <span class="text-[11px] text-zinc-500">
@@ -199,7 +205,7 @@
         <!--  페이징 컨트롤 -->
         <div
           v-if="totalPages > 1"
-          class="px-3 pb-1 flex items-center justify-center gap-2"
+          class="px-3 pb-2 flex items-center justify-center gap-2"
         >
           <button
             type="button"
@@ -222,14 +228,6 @@
           </button>
         </div>
       </div>
-
-      <!--  문서 카테고리 아코디언 (KnowledgeMenu) -->
-      <KnowledgeMenu
-        :selected-count="selectedDocIds.length"
-        :selected-categories="selectedCategories"
-        @category-selected="onCategorySelected"
-        @select-all-knowledge="onSelectAllKnowledge"
-      />
     </div>
 
     <!--  오른쪽 채팅 영역 (70%) -->
