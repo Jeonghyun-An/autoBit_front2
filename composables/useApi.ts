@@ -34,6 +34,10 @@ export type DocItem = {
   data_code?: string; // 예: "theme4"
   data_detail_code?: string; // 예: "theme4-1"
   data_sub_code?: string; // 예: "theme4-4-1"
+  type?: string; // SC 등 문서 타입
+  source_type?: string; // 출처 타입
+  chunk_count?: number; // 청킹된 조각 수
+  indexed?: boolean; // 인덱싱 완료 여부
 };
 
 export function useApi() {
@@ -149,6 +153,10 @@ export function useApi() {
           data_code?: string;
           data_detail_code?: string;
           data_sub_code?: string;
+          type?: string;
+          source_type?: string;
+          chunk_count?: number;
+          indexed?: boolean;
         }>;
       };
       return (j.docs || []).map((d) => ({
@@ -164,6 +172,10 @@ export function useApi() {
         data_code: d.data_code,
         data_detail_code: d.data_detail_code,
         data_sub_code: d.data_sub_code,
+        type: d.type,
+        source_type: d.source_type,
+        chunk_count: d.chunk_count,
+        indexed: d.indexed,
       })) as DocItem[];
     };
     try {
@@ -173,7 +185,6 @@ export function useApi() {
         timestamp: Date.now(),
       };
       console.log(`[CACHE] Cached ${docs.length} documents`);
-
       return docs;
     } catch {
       try {
@@ -182,7 +193,6 @@ export function useApi() {
           data: docs,
           timestamp: Date.now(),
         };
-
         return docs;
       } catch {
         /* 폴백 계속 진행 */
@@ -228,7 +238,10 @@ export function useApi() {
     };
     return docs;
   }
-
+  function invalidateDocsCache() {
+    _docsCache = null;
+    console.log("[CACHE] Docs cache invalidated");
+  }
   let _docIndex: Map<
     string,
     {
@@ -255,7 +268,10 @@ export function useApi() {
     );
     return _docIndex;
   }
-
+  function invalidateDocIndex() {
+    _docIndex = null;
+    console.log("[INDEX] Doc index invalidated");
+  }
   async function resolveObjectKeyByDocId(docId?: string) {
     if (!docId) return null;
     const idx = await ensureDocIndex();
@@ -548,5 +564,8 @@ export function useApi() {
 
     // category filter
     listDocsByCode,
+    // cache invalidation
+    invalidateDocsCache,
+    invalidateDocIndex,
   };
 }
