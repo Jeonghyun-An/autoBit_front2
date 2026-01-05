@@ -15,7 +15,7 @@
           </div>
 
           <!-- 우측: 프로그레스 바 -->
-          <div class="flex-1 max-w-md">
+          <div v-if="currentJobId" class="flex-1 max-w-md">
             <div class="space-y-2">
               <div class="flex items-center justify-between text-sm">
                 <span class="text-zinc-600 font-medium">학습 진행률</span>
@@ -28,7 +28,7 @@
                     'text-green-600': trainingProgress === 100,
                   }"
                 >
-                  {{ trainingProgress }}%
+                  {{ trainingProgress.toFixed(1) }}%
                 </span>
               </div>
               <div class="w-full h-3 bg-zinc-200 rounded-full overflow-hidden">
@@ -43,6 +43,9 @@
                   :style="{ width: `${trainingProgress}%` }"
                 ></div>
               </div>
+              <p v-if="currentStep" class="text-xs text-zinc-500 mt-1">
+                {{ currentStep }}
+              </p>
             </div>
           </div>
         </div>
@@ -264,16 +267,47 @@
           </button>
         </div>
       </div>
+
+      <!-- 에러 메시지 -->
+      <div
+        v-if="errorMessage"
+        class="bg-red-50 border border-red-200 rounded-lg p-4"
+      >
+        <div class="flex items-start gap-3">
+          <Icon
+            name="lucide:alert-circle"
+            class="w-5 h-5 text-red-600 mt-0.5"
+          />
+          <div class="flex-1">
+            <h3 class="text-sm font-semibold text-red-900 mb-1">오류 발생</h3>
+            <p class="text-sm text-red-700">{{ errorMessage }}</p>
+          </div>
+          <button
+            type="button"
+            class="text-red-600 hover:text-red-700"
+            @click="errorMessage = null"
+          >
+            <Icon name="lucide:x" class="w-5 h-5" />
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onUnmounted } from "vue";
 import { useDocsList } from "@/composables/useDocsList";
+import {
+  useFinetuneApi,
+  useFinetuningPolling,
+} from "@/composables/useFinetuneApi";
 
 // 문서 목록 가져오기
 const { docs, hasData, isLoading, fetchDocs } = useDocsList();
+
+// 파인튜닝 API
+const { startFinetuning } = useFinetuneApi();
 
 // 검색 & 선택 상태
 const docSearch = ref("");
@@ -281,11 +315,20 @@ const selectedDocIds = ref<string[]>([]);
 
 // 학습 상태
 const isTraining = ref(false);
-const trainingProgress = ref(0);
+const currentJobId = ref<string | null>(null);
+const errorMessage = ref<string | null>(null);
 
 // 페이징 상태
 const currentPage = ref(1);
 const itemsPerPage = 9; // 3x3 그리드
+
+// 폴링 설정
+const { status, progress, isCompleted, startPolling, stopPolling } =
+  useFinetuningPolling(currentJobId.value || "", 2000);
+
+// 진행률 및 현재 단계
+const trainingProgress = computed(() => progress.value || 0);
+const currentStep = computed(() => status.value?.current_step || "");
 
 // 검색된 문서 리스트 (최신순 정렬)
 const filteredDocs = computed(() => {
@@ -405,31 +448,65 @@ const formatDate = (dateStr: string) => {
   }
 };
 
-// 학습 시작 (시뮬레이션)
-const startTraining = () => {
+// 학습 시작 (실제 API 호출)
+const startTraining = async () => {
   if (selectedDocIds.value.length === 0) return;
 
+  errorMessage.value = null;
   isTraining.value = true;
-  trainingProgress.value = 0;
 
-  // 진행률 시뮬레이션 (실제로는 백엔드 API 호출)
-  const interval = setInterval(() => {
-    trainingProgress.value += Math.random() * 5;
-    if (trainingProgress.value >= 100) {
-      trainingProgress.value = 100;
-      isTraining.value = false;
-      clearInterval(interval);
+  try {
+    console.log(
+      `[FINETUNE] Starting training with ${selectedDocIds.value.length} documents`
+    );
 
-      // 학습 완료 알림
-      alert(
-        `선택한 ${selectedDocIds.value.length}개 문서로 학습이 완료되었습니다!`
-      );
-    }
-  }, 500);
+    // 파인튜닝 시작
+    const response = await startFinetuning({
+      doc_ids: selectedDocIds.value,
+      model_name: "Qwen/Qwen2.5-14B-Instruct",
+      lora_r: 16,
+      lora_alpha: 32,
+      num_epochs: 3,
+      batch_size: 2,
+      learning_rate: 2e-4,
+    });
+
+    console.log(`[FINETUNE] Job started: ${response.job_id}`);
+
+    currentJobId.value = response.job_id;
+
+    // 폴링 시작
+    startPolling();
+  } catch (error: any) {
+    console.error("[FINETUNE] Error:", error);
+    errorMessage.value =
+      error.message || "파인튜닝 시작 중 오류가 발생했습니다";
+    isTraining.value = false;
+  }
 };
+
+// 완료 감지
+watch(isCompleted, (completed) => {
+  if (completed) {
+    isTraining.value = false;
+
+    if (status.value?.status === "completed") {
+      alert(
+        `파인튜닝이 완료되었습니다!\n출력 경로: ${status.value.output_path}`
+      );
+    } else if (status.value?.status === "failed") {
+      errorMessage.value = status.value.error || "파인튜닝 실패";
+    }
+  }
+});
 
 // 초기 데이터 로드
 fetchDocs();
+
+// Cleanup
+onUnmounted(() => {
+  stopPolling();
+});
 </script>
 
 <style scoped>
