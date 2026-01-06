@@ -170,7 +170,7 @@
             <!-- 청크 보기 버튼 -->
             <div class="mt-3 pt-3 border-t border-zinc-200">
               <NuxtLink
-                :to="`/rag/chunks/${doc.doc_id}`"
+                :to="`/chunks/${doc.doc_id}`"
                 class="text-xs text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1"
                 @click.stop
               >
