@@ -967,6 +967,7 @@ const props = defineProps<{
   expandedSubMenus: Record<string, boolean>;
   scYears: string[];
   selectedCategories: Set<string>;
+  categoryDocCounts?: Map<string, number>;
 }>();
 
 defineEmits<{
@@ -1004,5 +1005,19 @@ function hasSelectedChild(code: string, detail?: string): boolean {
   }
 
   return false;
+}
+
+function getDocCount(code: string, detail?: string, sub?: string): number {
+  if (!props.categoryDocCounts) return 0;
+  let key = code;
+  if (detail) key += `::${detail}`;
+  if (sub) key += `::${sub}`;
+  return props.categoryDocCounts.get(key) || 0;
+}
+
+function formatDocCount(count: number): string {
+  if (count === 0) return "";
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
+  return count.toString();
 }
 </script>

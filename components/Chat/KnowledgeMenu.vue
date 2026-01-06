@@ -54,6 +54,7 @@
             :expanded-sub-menus="expandedSubMenus"
             :sc-years="scYears"
             :selected-categories="selectedCategories"
+            :category-doc-counts="categoryDocCounts"
             @toggle-theme="toggleTheme"
             @toggle-sub-menu="toggleSubMenu"
             @select-category="selectCategory"
@@ -105,6 +106,7 @@
           :expanded-sub-menus="expandedSubMenus"
           :sc-years="scYears"
           :selected-categories="selectedCategories"
+          :category-doc-counts="categoryDocCounts"
           @toggle-theme="toggleTheme"
           @toggle-sub-menu="toggleSubMenu"
           @select-category="selectCategory"
@@ -121,7 +123,8 @@ import CategoryTree from "./CategoryTree.vue";
 
 defineProps<{
   selectedCount?: number;
-  selectedCategories: Set<string>; // 추가: 선택된 카테고리 상태
+  selectedCategories: Set<string>;
+  categoryDocCounts?: Map<string, number>; // 추가: 카테고리별 문서 개수
 }>();
 
 const emit = defineEmits<{
@@ -168,8 +171,6 @@ const scYears = [
   "2022",
   "2023",
   "2024",
-  "2025",
-  "2026",
 ];
 
 const toggleTheme = (themeKey: string) => {
