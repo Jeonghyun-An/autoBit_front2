@@ -56,7 +56,7 @@
         <div class="flex h-[calc(100vh-280px)]">
           <!-- 좌측: 카테고리 선택 영역 (1/3) -->
           <div
-            class="w-1/3 border-r border-zinc-200 flex flex-col overflow-hidden"
+            class="w-1/3 border-r border-zinc-200 flex flex-col overflow-hidden p-3 pr-0"
           >
             <KnowledgeMenu
               :selected-count="selectedDocIds.length"
@@ -91,7 +91,7 @@
                 <div class="flex items-center gap-3">
                   <span class="text-sm text-zinc-600">
                     선택된 문서:
-                    <span class="font-semibold text-blue-600">
+                    <span class="font-semibold text-slate-800">
                       {{ selectedDocIds.length }}
                     </span>
                     개
@@ -132,7 +132,7 @@
                   :key="doc.doc_id"
                   class="group relative border border-zinc-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
                   :class="{
-                    'ring-2 ring-blue-500 border-blue-500 bg-blue-50':
+                    'ring-2 ring-slate-900 border-slate-900 bg-zinc-50':
                       isSelected(doc.doc_id),
                     'hover:border-zinc-300': !isSelected(doc.doc_id),
                   }"
@@ -144,7 +144,9 @@
                       <div
                         class="w-5 h-5 rounded border-2 flex items-center justify-center transition-all"
                         :class="{
-                          'bg-blue-500 border-blue-500': isSelected(doc.doc_id),
+                          'bg-slate-800 border-slate-800': isSelected(
+                            doc.doc_id
+                          ),
                           'bg-white border-zinc-300 group-hover:border-zinc-400':
                             !isSelected(doc.doc_id),
                         }"
@@ -160,20 +162,14 @@
                     <!-- 문서 정보 -->
                     <div class="flex-1 min-w-0">
                       <div class="flex items-start justify-between gap-2">
-                        <h3
-                          class="text-sm font-semibold line-clamp-2"
-                          :class="{
-                            'text-blue-900': isSelected(doc.doc_id),
-                            'text-zinc-900': !isSelected(doc.doc_id),
-                          }"
-                        >
+                        <h3 class="text-sm font-semibold line-clamp-2">
                           {{ doc.title || doc.doc_id }}
                         </h3>
                       </div>
 
                       <!-- 메타정보 -->
                       <div
-                        class="mt-2 flex items-center gap-3 text-xs text-zinc-500"
+                        class="mt-2 flex items-center gap-3 text-xs text-zinc-400"
                       >
                         <div
                           v-if="doc.uploaded_at"
@@ -183,28 +179,18 @@
                           <span>{{ formatDate(doc.uploaded_at) }}</span>
                         </div>
                         <div class="flex items-center gap-1.5">
-                          <Icon name="lucide:file" class="w-3 h-3" />
-                          <span class="truncate">{{ doc.chunk_count }}</span>
+                          <NuxtLink
+                            :to="`/chunks/${doc.doc_id}`"
+                            class="text-xs border hover:text-zinc-700 font-medium inline-flex items-center gap-1.5"
+                            @click.stop
+                          >
+                            <Icon name="lucide:file" class="w-3 h-3" />
+                            <span class="truncate"
+                              >{{ doc.chunk_count }}개의
+                            </span>
+                            청크 보기
+                          </NuxtLink>
                         </div>
-                        <div class="flex items-center gap-1">
-                          <span class="truncate">{{ doc.data_code }}</span>
-                          <span class="truncate">{{
-                            doc.data_detail_code
-                          }}</span>
-                          <span class="truncate">{{ doc.data_sub_code }}</span>
-                        </div>
-                      </div>
-
-                      <!-- 청크 보기 링크 -->
-                      <div class="mt-2 pt-2 border-t border-zinc-200">
-                        <NuxtLink
-                          :to="`/chunks/${doc.doc_id}`"
-                          class="text-xs text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1"
-                          @click.stop
-                        >
-                          <Icon name="lucide:list" class="w-3 h-3" />
-                          청크 보기
-                        </NuxtLink>
                       </div>
                     </div>
                   </div>
@@ -227,7 +213,7 @@
               <div v-else-if="isLoading" class="text-center py-12">
                 <Icon
                   name="eos-icons:bubble-loading"
-                  class="w-12 h-12 text-blue-500 mx-auto mb-3 animate-pulse"
+                  class="w-12 h-12 text-slate-800 mx-auto mb-3 animate-pulse"
                 />
                 <p class="text-zinc-500">문서 목록을 불러오는 중...</p>
               </div>
@@ -236,7 +222,7 @@
             <!-- 페이징 버튼 -->
             <div
               v-if="totalPages > 1"
-              class="border-t border-zinc-200 p-4 flex items-center justify-center gap-2"
+              class="border-t border-zinc-200 text-zinc-600 p-2 flex items-center justify-center gap-2"
             >
               <button
                 type="button"
@@ -255,7 +241,7 @@
                   type="button"
                   class="w-8 h-8 text-sm rounded-lg transition-all"
                   :class="{
-                    'bg-blue-500 text-white font-semibold':
+                    'bg-slate-900 text-white font-semibold':
                       page === currentPage,
                     'border border-zinc-300 hover:bg-zinc-50 text-zinc-700':
                       page !== currentPage,
@@ -285,7 +271,7 @@
                   :disabled="selectedDocIds.length === 0 || isTraining"
                   class="px-8 py-3 rounded-lg font-semibold text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   :class="{
-                    'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700':
+                    'bg-gradient-to-r from-indigo-900 to-slate-900 hover:from-blue-500 hover:to-indigo-600':
                       selectedDocIds.length > 0 && !isTraining,
                     'bg-zinc-400': selectedDocIds.length === 0 || isTraining,
                   }"
