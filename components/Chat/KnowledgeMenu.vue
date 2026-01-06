@@ -70,7 +70,7 @@
     class="flex-1 min-h-0 border-zinc-200 bg-white flex flex-col"
   >
     <!-- 고정 헤더 영역(확장하기)-->
-    <div class="p-1 pb-0 bg-white sticky top-0 z-10">
+    <div class="p-1 pb-0 pr-3 bg-white sticky top-0 z-10">
       <!-- 상단: 확장 버튼 -->
       <div class="flex justify-end mb-0.5">
         <button
