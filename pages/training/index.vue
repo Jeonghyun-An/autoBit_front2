@@ -8,7 +8,7 @@
           <div class="flex items-center gap-3">
             <div>
               <h1 class="text-2xl font-bold text-zinc-900">원자력 파일 학습</h1>
-              <p class="text-sm text-zinc-500 mt-0.5 text-pretty">
+              <p class="text-sm text-zinc-500 mt-0.5">
                 선택한 문서로 모델 파인튜닝
               </p>
             </div>
@@ -51,9 +51,117 @@
         </div>
       </div>
 
+      <!-- 폴더 관리 영역 -->
+      <div class="bg-white rounded-xl shadow-sm border border-zinc-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-zinc-900">문서 폴더</h2>
+          <button
+            type="button"
+            class="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white hover:bg-slate-700 transition-all flex items-center gap-2"
+            @click="showFolderCreationModal = true"
+          >
+            <Icon name="lucide:folder-plus" class="w-4 h-4" />
+            새 폴더
+          </button>
+        </div>
+
+        <!-- 폴더 목록 -->
+        <div
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
+        >
+          <div
+            v-for="folder in folders"
+            :key="folder.id"
+            class="group relative border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
+            :class="{
+              'ring-2 ring-slate-900 border-slate-900 bg-zinc-50':
+                currentFolder === folder.id,
+              'border-zinc-200 hover:border-zinc-300':
+                currentFolder !== folder.id,
+            }"
+            @click="loadFolder(folder.id)"
+          >
+            <!-- 폴더 아이콘 -->
+            <div
+              class="w-12 h-12 rounded-lg flex items-center justify-center mb-3"
+              :class="{
+                'bg-blue-100': currentFolder === folder.id,
+                'bg-zinc-100': currentFolder !== folder.id,
+              }"
+            >
+              <Icon
+                name="lucide:folder"
+                class="w-6 h-6"
+                :class="{
+                  'text-blue-600': currentFolder === folder.id,
+                  'text-zinc-600': currentFolder !== folder.id,
+                }"
+              />
+            </div>
+
+            <!-- 폴더 이름 (편집 가능) -->
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <input
+                v-if="editingFolderId === folder.id"
+                v-model="editingFolderName"
+                type="text"
+                class="flex-1 px-2 py-1 text-sm font-semibold border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                @blur="saveFolderName(folder.id)"
+                @keyup.enter="saveFolderName(folder.id)"
+                @keyup.esc="cancelEditFolderName"
+                @click.stop
+              />
+              <h3
+                v-else
+                class="flex-1 text-sm font-semibold line-clamp-1"
+                :class="{
+                  'text-blue-900': currentFolder === folder.id,
+                  'text-zinc-900': currentFolder !== folder.id,
+                }"
+              >
+                {{ folder.name }}
+              </h3>
+
+              <!-- 편집/삭제 버튼 -->
+              <div
+                class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <button
+                  type="button"
+                  class="p-1 hover:bg-zinc-200 rounded transition-colors"
+                  @click.stop="startEditFolderName(folder.id, folder.name)"
+                  title="이름 변경"
+                >
+                  <Icon name="lucide:edit-2" class="w-3 h-3 text-zinc-600" />
+                </button>
+                <button
+                  type="button"
+                  class="p-1 hover:bg-red-100 rounded transition-colors"
+                  @click.stop="deleteFolder(folder.id)"
+                  title="폴더 삭제"
+                >
+                  <Icon name="lucide:trash-2" class="w-3 h-3 text-red-600" />
+                </button>
+              </div>
+            </div>
+
+            <!-- 문서 개수 -->
+            <p class="text-xs text-zinc-500">
+              <Icon name="lucide:file-text" class="w-3 h-3 inline mr-1" />
+              {{ folder.docIds.length }}개 문서
+            </p>
+
+            <!-- 생성 날짜 -->
+            <p class="text-xs text-zinc-400 mt-1">
+              {{ formatDate(folder.createdAt) }}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- 메인 컨텐츠: 좌측 카테고리 (1/3) + 우측 문서 목록 (2/3) -->
       <div class="bg-white rounded-xl shadow-sm border border-zinc-200">
-        <div class="flex h-[calc(100vh-280px)]">
+        <div class="flex h-[calc(100vh-480px)] min-h-[500px]">
           <!-- 좌측: 카테고리 선택 영역 (1/3) -->
           <div
             class="w-1/3 border-r border-zinc-200 flex flex-col overflow-hidden p-3 pr-0"
@@ -68,7 +176,7 @@
 
           <!-- 우측: 문서 목록 영역 (2/3) -->
           <div class="flex-1 flex flex-col">
-            <!-- 상단: 검색 & 선택 정보 -->
+            <!-- 상단: 검색 & 선택 정보 & 정렬 옵션 -->
             <div class="p-6 pb-4 border-b border-zinc-200">
               <div class="flex items-center justify-between gap-4 mb-4">
                 <!-- 검색바 -->
@@ -87,7 +195,23 @@
                   </div>
                 </div>
 
-                <!-- 선택 정보 -->
+                <!-- 정렬 옵션 -->
+                <div class="flex items-center gap-2">
+                  <label class="text-xs text-zinc-600">정렬:</label>
+                  <select
+                    v-model="sortOrder"
+                    class="px-3 py-2 text-sm border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="date-desc">최신순</option>
+                    <option value="date-asc">오래된순</option>
+                    <option value="name-asc">이름순 (A-Z)</option>
+                    <option value="name-desc">이름순 (Z-A)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- 선택 정보 & 버튼들 -->
+              <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <span class="text-sm text-zinc-600">
                     선택된 문서:
@@ -97,26 +221,35 @@
                     개
                   </span>
                 </div>
-              </div>
 
-              <!-- 전체 선택 / 선택 초기화 버튼 -->
-              <div class="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  class="px-3 py-1.5 text-xs rounded-md border border-zinc-300 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                  @click="selectAllDocs"
-                  :disabled="filteredDocs.length === 0 || allDocsSelected"
-                >
-                  {{ allDocsSelected ? "✓ 전체 선택됨" : "전체 선택" }}
-                </button>
-                <button
-                  type="button"
-                  class="px-3 py-1.5 text-xs rounded-md border border-zinc-300 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                  @click="clearSelectedDocs"
-                  :disabled="selectedDocIds.length === 0"
-                >
-                  선택 초기화
-                </button>
+                <!-- 전체 선택 / 선택 초기화 / 폴더에 저장 버튼 -->
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-xs rounded-md border border-zinc-300 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    @click="selectAllDocs"
+                    :disabled="filteredDocs.length === 0 || allDocsSelected"
+                  >
+                    {{ allDocsSelected ? "✓ 전체 선택됨" : "전체 선택" }}
+                  </button>
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-xs rounded-md border border-zinc-300 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    @click="clearSelectedDocs"
+                    :disabled="selectedDocIds.length === 0"
+                  >
+                    선택 초기화
+                  </button>
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-xs rounded-md bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
+                    @click="showFolderSelectModal = true"
+                    :disabled="selectedDocIds.length === 0"
+                  >
+                    <Icon name="lucide:folder-input" class="w-3 h-3" />
+                    폴더에 저장
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -181,14 +314,13 @@
                         <div class="flex items-center gap-1.5">
                           <NuxtLink
                             :to="`/chunks/${doc.doc_id}`"
-                            class="text-xs border hover:text-zinc-700 font-medium inline-flex items-center gap-1.5"
+                            class="text-xs hover:text-zinc-700 font-medium inline-flex items-center gap-1.5"
                             @click.stop
                           >
                             <Icon name="lucide:file" class="w-3 h-3" />
-                            <span class="truncate"
-                              >{{ doc.chunk_count }}개의
+                            <span class="truncate">
+                              {{ doc.chunk_count || 0 }}개의 청크 보기
                             </span>
-                            청크 보기
                           </NuxtLink>
                         </div>
                       </div>
@@ -222,7 +354,7 @@
             <!-- 페이징 버튼 -->
             <div
               v-if="totalPages > 1"
-              class="border-t border-zinc-200 text-zinc-600 p-2 flex items-center justify-center gap-2"
+              class="border-t border-zinc-200 p-4 flex items-center justify-center gap-2"
             >
               <button
                 type="button"
@@ -316,11 +448,128 @@
         </div>
       </div>
     </div>
+
+    <!-- 폴더 생성 모달 -->
+    <Teleport to="body">
+      <div
+        v-if="showFolderCreationModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+        @click.self="showFolderCreationModal = false"
+      >
+        <div
+          class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6"
+          @click.stop
+        >
+          <h3 class="text-lg font-semibold text-zinc-900 mb-4">
+            새 폴더 만들기
+          </h3>
+          <input
+            v-model="newFolderName"
+            type="text"
+            placeholder="폴더 이름을 입력하세요"
+            class="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            @keyup.enter="createFolder"
+            @keyup.esc="showFolderCreationModal = false"
+          />
+          <div class="flex justify-end gap-2">
+            <button
+              type="button"
+              class="px-4 py-2 text-sm rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-50 transition-all"
+              @click="showFolderCreationModal = false"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              class="px-4 py-2 text-sm rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all"
+              @click="createFolder"
+              :disabled="!newFolderName.trim()"
+            >
+              만들기
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 폴더 선택 모달 -->
+    <Teleport to="body">
+      <div
+        v-if="showFolderSelectModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+        @click.self="showFolderSelectModal = false"
+      >
+        <div
+          class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6"
+          @click.stop
+        >
+          <h3 class="text-lg font-semibold text-zinc-900 mb-4">폴더 선택</h3>
+          <p class="text-sm text-zinc-600 mb-4">
+            선택한 {{ selectedDocIds.length }}개 문서를 저장할 폴더를 선택하세요
+          </p>
+
+          <!-- 폴더 목록 -->
+          <div class="space-y-2 max-h-[400px] overflow-y-auto mb-4">
+            <div
+              v-for="folder in folders"
+              :key="folder.id"
+              class="p-3 border border-zinc-200 rounded-lg hover:bg-zinc-50 cursor-pointer transition-all"
+              @click="saveToFolder(folder.id)"
+            >
+              <div class="flex items-center gap-3">
+                <Icon name="lucide:folder" class="w-5 h-5 text-blue-600" />
+                <div class="flex-1">
+                  <p class="text-sm font-semibold text-zinc-900">
+                    {{ folder.name }}
+                  </p>
+                  <p class="text-xs text-zinc-500">
+                    {{ folder.docIds.length }}개 문서
+                  </p>
+                </div>
+                <Icon
+                  name="lucide:chevron-right"
+                  class="w-4 h-4 text-zinc-400"
+                />
+              </div>
+            </div>
+
+            <!-- 폴더 없음 -->
+            <div
+              v-if="folders.length === 0"
+              class="text-center py-8 text-zinc-400"
+            >
+              <Icon name="lucide:folder-x" class="w-12 h-12 mx-auto mb-2" />
+              <p class="text-sm">폴더가 없습니다</p>
+              <button
+                type="button"
+                class="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                @click="
+                  showFolderSelectModal = false;
+                  showFolderCreationModal = true;
+                "
+              >
+                새 폴더 만들기
+              </button>
+            </div>
+          </div>
+
+          <div class="flex justify-end">
+            <button
+              type="button"
+              class="px-4 py-2 text-sm rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-50 transition-all"
+              @click="showFolderSelectModal = false"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onUnmounted } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useDocsList } from "@/composables/useDocsList";
 import { useApi, type DocItem } from "@/composables/useApi";
 import {
@@ -329,42 +578,95 @@ import {
 } from "@/composables/useFinetuneApi";
 import KnowledgeMenu from "@/components/Chat/KnowledgeMenu.vue";
 
-// 문서 목록 가져오기
+// ============================================================================
+// Types
+// ============================================================================
+
+interface DocumentFolder {
+  id: string;
+  name: string;
+  docIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const STORAGE_KEYS = {
+  FOLDERS: "training_folders",
+  CURRENT_FOLDER: "training_current_folder",
+  SORT_ORDER: "training_sort_order",
+} as const;
+
+// ============================================================================
+// Composables
+// ============================================================================
+
 const { docs, hasData, isLoading, fetchDocs } = useDocsList();
-
-// 카테고리 API
 const { listDocsByCode } = useApi();
-
-// 파인튜닝 API
 const { startFinetuning } = useFinetuneApi();
 
-// 검색 & 선택 상태
+// ============================================================================
+// State - 폴더 관리
+// ============================================================================
+
+const folders = ref<DocumentFolder[]>([]);
+const currentFolder = ref<string | null>(null);
+const showFolderCreationModal = ref(false);
+const showFolderSelectModal = ref(false);
+const newFolderName = ref("");
+const editingFolderId = ref<string | null>(null);
+const editingFolderName = ref("");
+
+// ============================================================================
+// State - 검색 & 선택
+// ============================================================================
+
 const docSearch = ref("");
 const selectedDocIds = ref<string[]>([]);
+const sortOrder = ref<"date-desc" | "date-asc" | "name-asc" | "name-desc">(
+  "date-desc"
+);
 
-// 학습 상태
+// ============================================================================
+// State - 학습
+// ============================================================================
+
 const isTraining = ref(false);
 const currentJobId = ref<string | null>(null);
 const errorMessage = ref<string | null>(null);
 
-// 페이징 상태
+// ============================================================================
+// State - 페이징
+// ============================================================================
+
 const currentPage = ref(1);
-const itemsPerPage = 10; // 리스트형 레이아웃에 맞게 조정
+const itemsPerPage = 10;
 
-// 폴링 설정
-const { status, progress, isCompleted, startPolling, stopPolling } =
-  useFinetuningPolling(currentJobId.value || "", 2000);
+// ============================================================================
+// State - 카테고리
+// ============================================================================
 
-// 진행률 및 현재 단계
-const trainingProgress = computed(() => progress.value || 0);
-const currentStep = computed(() => status.value?.current_step || "");
-
-// 카테고리 맵핑 (chat/index.vue와 동일)
 const docCategoryMap = ref<
   Map<string, { code: string; detail?: string; sub?: string }>
 >(new Map());
 
-// 선택된 카테고리 computed (chat/index.vue와 동일)
+// ============================================================================
+// 폴링 설정
+// ============================================================================
+
+const { status, progress, isCompleted, startPolling, stopPolling } =
+  useFinetuningPolling(currentJobId.value || "", 2000);
+
+const trainingProgress = computed(() => progress.value || 0);
+const currentStep = computed(() => status.value?.current_step || "");
+
+// ============================================================================
+// Computed - 카테고리
+// ============================================================================
+
 const selectedCategories = computed(() => {
   const categories = new Set<string>();
   const categoryDocCounts = new Map<string, Set<string>>();
@@ -379,7 +681,6 @@ const selectedCategories = computed(() => {
       categories.add(`${code}::${detail}::${sub}`);
     }
 
-    // 카테고리별 선택된 문서 추적
     if (code) {
       if (!categoryDocCounts.has(code)) categoryDocCounts.set(code, new Set());
       categoryDocCounts.get(code)!.add(docId);
@@ -393,7 +694,6 @@ const selectedCategories = computed(() => {
     }
   }
 
-  // 전체 선택 여부 확인
   for (const [catKey, selectedDocs] of categoryDocCounts.entries()) {
     let totalCount = 0;
     const parts = catKey.split("::");
@@ -418,28 +718,10 @@ const selectedCategories = computed(() => {
   return categories;
 });
 
-// docs watch (카테고리 맵 구축)
-watch(
-  docs,
-  (newDocs) => {
-    console.log("[Training] docs updated, count:", newDocs.length);
-    const newMap = new Map();
-    for (const doc of newDocs) {
-      if (doc.data_code) {
-        newMap.set(doc.doc_id, {
-          code: doc.data_code,
-          detail: doc.data_detail_code || undefined,
-          sub: doc.data_sub_code || undefined,
-        });
-      }
-    }
-    console.log("[Training] docCategoryMap created, size:", newMap.size);
-    docCategoryMap.value = newMap;
-  },
-  { immediate: true }
-);
+// ============================================================================
+// Computed - 문서 목록 & 페이징
+// ============================================================================
 
-// 검색된 문서 리스트 (최신순 정렬)
 const filteredDocs = computed(() => {
   const q = docSearch.value.trim().toLowerCase();
   let result = q
@@ -449,34 +731,59 @@ const filteredDocs = computed(() => {
       })
     : docs.value.slice();
 
-  // 최신순 정렬
+  // 정렬
   result.sort((a, b) => {
-    if (a.uploaded_at && b.uploaded_at) {
-      return (
-        new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
-      );
+    switch (sortOrder.value) {
+      case "date-desc":
+        if (a.uploaded_at && b.uploaded_at) {
+          return (
+            new Date(b.uploaded_at).getTime() -
+            new Date(a.uploaded_at).getTime()
+          );
+        }
+        if (a.uploaded_at && !b.uploaded_at) return -1;
+        if (!a.uploaded_at && b.uploaded_at) return 1;
+        return 0;
+
+      case "date-asc":
+        if (a.uploaded_at && b.uploaded_at) {
+          return (
+            new Date(a.uploaded_at).getTime() -
+            new Date(b.uploaded_at).getTime()
+          );
+        }
+        if (a.uploaded_at && !b.uploaded_at) return 1;
+        if (!a.uploaded_at && b.uploaded_at) return -1;
+        return 0;
+
+      case "name-asc":
+        return (a.title || a.doc_id || "").localeCompare(
+          b.title || b.doc_id || ""
+        );
+
+      case "name-desc":
+        return (b.title || b.doc_id || "").localeCompare(
+          a.title || a.doc_id || ""
+        );
+
+      default:
+        return 0;
     }
-    if (a.uploaded_at && !b.uploaded_at) return -1;
-    if (!a.uploaded_at && b.uploaded_at) return 1;
-    return (a.title || a.doc_id || "").localeCompare(b.title || b.doc_id || "");
   });
 
   return result;
 });
 
-// 전체 페이지 수
 const totalPages = computed(() => {
   return Math.ceil(filteredDocs.value.length / itemsPerPage);
 });
 
-// 현재 페이지의 문서 목록
 const paginatedDocs = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
   const end = start + itemsPerPage;
   return filteredDocs.value.slice(start, end);
 });
 
-// 보이는 페이지 번호 (최대 5개)
 const visiblePages = computed(() => {
   const total = totalPages.value;
   const current = currentPage.value;
@@ -500,49 +807,6 @@ const visiblePages = computed(() => {
   return pages;
 });
 
-// 페이지 이동 함수
-const nextPage = () => {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++;
-  }
-};
-
-const prevPage = () => {
-  if (currentPage.value > 1) {
-    currentPage.value--;
-  }
-};
-
-const goToPage = (page: number) => {
-  currentPage.value = page;
-};
-
-// 검색어 변경 시 첫 페이지로 리셋
-watch(docSearch, () => {
-  currentPage.value = 1;
-});
-
-// 문서 선택 토글
-const toggleSelection = (docId: string) => {
-  const index = selectedDocIds.value.indexOf(docId);
-  if (index > -1) {
-    selectedDocIds.value.splice(index, 1);
-  } else {
-    selectedDocIds.value.push(docId);
-  }
-};
-
-// 선택 여부 확인
-const isSelected = (docId: string) => {
-  return selectedDocIds.value.includes(docId);
-};
-
-// 선택 해제
-const clearSelection = () => {
-  selectedDocIds.value = [];
-};
-
-// 전체 문서 선택됨 여부
 const allDocsSelected = computed(() => {
   if (filteredDocs.value.length === 0) return false;
   return (
@@ -551,20 +815,237 @@ const allDocsSelected = computed(() => {
   );
 });
 
-// 전체 문서 선택
+// ============================================================================
+// Watch - 데이터 로드 & 저장
+// ============================================================================
+
+watch(
+  docs,
+  (newDocs) => {
+    console.log("[Training] docs updated, count:", newDocs.length);
+    const newMap = new Map();
+    for (const doc of newDocs) {
+      if (doc.data_code) {
+        newMap.set(doc.doc_id, {
+          code: doc.data_code,
+          detail: doc.data_detail_code || undefined,
+          sub: doc.data_sub_code || undefined,
+        });
+      }
+    }
+    console.log("[Training] docCategoryMap created, size:", newMap.size);
+    docCategoryMap.value = newMap;
+  },
+  { immediate: true }
+);
+
+watch(docSearch, () => {
+  currentPage.value = 1;
+});
+
+watch(sortOrder, (newValue) => {
+  if (process.client) {
+    localStorage.setItem(STORAGE_KEYS.SORT_ORDER, newValue);
+  }
+});
+
+watch(
+  folders,
+  (newFolders) => {
+    if (process.client) {
+      localStorage.setItem(STORAGE_KEYS.FOLDERS, JSON.stringify(newFolders));
+    }
+  },
+  { deep: true }
+);
+
+watch(currentFolder, (newFolder) => {
+  if (process.client && newFolder) {
+    localStorage.setItem(STORAGE_KEYS.CURRENT_FOLDER, newFolder);
+  }
+});
+
+watch(isCompleted, (completed) => {
+  if (completed) {
+    isTraining.value = false;
+
+    if (status.value?.status === "completed") {
+      alert(
+        `파인튜닝이 완료되었습니다!\n출력 경로: ${status.value.output_path}`
+      );
+    } else if (status.value?.status === "failed") {
+      errorMessage.value = status.value.error || "파인튜닝 실패";
+    }
+  }
+});
+
+// ============================================================================
+// Functions - 폴더 관리
+// ============================================================================
+
+function loadFromLocalStorage() {
+  if (!process.client) return;
+
+  const savedFolders = localStorage.getItem(STORAGE_KEYS.FOLDERS);
+  if (savedFolders) {
+    try {
+      folders.value = JSON.parse(savedFolders);
+    } catch (e) {
+      console.error("[Storage] Failed to parse folders:", e);
+      folders.value = [];
+    }
+  }
+
+  const savedCurrentFolder = localStorage.getItem(STORAGE_KEYS.CURRENT_FOLDER);
+  if (savedCurrentFolder) {
+    currentFolder.value = savedCurrentFolder;
+  }
+
+  const savedSortOrder = localStorage.getItem(STORAGE_KEYS.SORT_ORDER);
+  if (savedSortOrder) {
+    sortOrder.value = savedSortOrder as typeof sortOrder.value;
+  }
+}
+
+function createFolder() {
+  if (!newFolderName.value.trim()) return;
+
+  const folder: DocumentFolder = {
+    id: `folder_${Date.now()}`,
+    name: newFolderName.value.trim(),
+    docIds: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  folders.value.push(folder);
+  newFolderName.value = "";
+  showFolderCreationModal.value = false;
+
+  console.log("[Folder] Created:", folder);
+}
+
+function deleteFolder(folderId: string) {
+  if (!confirm("이 폴더를 삭제하시겠습니까?")) return;
+
+  folders.value = folders.value.filter((f) => f.id !== folderId);
+
+  if (currentFolder.value === folderId) {
+    currentFolder.value = null;
+    selectedDocIds.value = [];
+  }
+
+  console.log("[Folder] Deleted:", folderId);
+}
+
+function loadFolder(folderId: string) {
+  const folder = folders.value.find((f) => f.id === folderId);
+  if (!folder) return;
+
+  currentFolder.value = folderId;
+  selectedDocIds.value = [...folder.docIds];
+
+  console.log("[Folder] Loaded:", folder.name, folder.docIds.length);
+}
+
+function saveToFolder(folderId: string) {
+  const folder = folders.value.find((f) => f.id === folderId);
+  if (!folder) return;
+
+  const combinedIds = new Set([...folder.docIds, ...selectedDocIds.value]);
+  folder.docIds = Array.from(combinedIds);
+  folder.updatedAt = new Date().toISOString();
+
+  showFolderSelectModal.value = false;
+
+  console.log("[Folder] Saved to:", folder.name, folder.docIds.length);
+  alert(
+    `${folder.name}에 ${selectedDocIds.value.length}개 문서를 저장했습니다.`
+  );
+}
+
+function startEditFolderName(folderId: string, currentName: string) {
+  editingFolderId.value = folderId;
+  editingFolderName.value = currentName;
+}
+
+function saveFolderName(folderId: string) {
+  if (!editingFolderName.value.trim()) {
+    cancelEditFolderName();
+    return;
+  }
+
+  const folder = folders.value.find((f) => f.id === folderId);
+  if (folder) {
+    folder.name = editingFolderName.value.trim();
+    folder.updatedAt = new Date().toISOString();
+  }
+
+  editingFolderId.value = null;
+  editingFolderName.value = "";
+}
+
+function cancelEditFolderName() {
+  editingFolderId.value = null;
+  editingFolderName.value = "";
+}
+
+// ============================================================================
+// Functions - 문서 선택
+// ============================================================================
+
+function toggleSelection(docId: string) {
+  const index = selectedDocIds.value.indexOf(docId);
+  if (index > -1) {
+    selectedDocIds.value.splice(index, 1);
+  } else {
+    selectedDocIds.value.push(docId);
+  }
+}
+
+function isSelected(docId: string) {
+  return selectedDocIds.value.includes(docId);
+}
+
+function clearSelection() {
+  selectedDocIds.value = [];
+}
+
 function selectAllDocs() {
   const allDocIds = filteredDocs.value.map((d) => d.doc_id);
   selectedDocIds.value = allDocIds;
   console.log(`[Training] Selected ALL ${allDocIds.length} documents`);
 }
 
-// 선택 초기화
 function clearSelectedDocs() {
   selectedDocIds.value = [];
 }
 
-// 날짜 포맷팅
-const formatDate = (dateStr: string) => {
+// ============================================================================
+// Functions - 페이징
+// ============================================================================
+
+function nextPage() {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++;
+  }
+}
+
+function prevPage() {
+  if (currentPage.value > 1) {
+    currentPage.value--;
+  }
+}
+
+function goToPage(page: number) {
+  currentPage.value = page;
+}
+
+// ============================================================================
+// Functions - 유틸리티
+// ============================================================================
+
+function formatDate(dateStr: string) {
   try {
     const date = new Date(dateStr);
     return date.toLocaleDateString("ko-KR", {
@@ -575,9 +1056,12 @@ const formatDate = (dateStr: string) => {
   } catch {
     return dateStr;
   }
-};
+}
 
-// 카테고리 선택 핸들러
+// ============================================================================
+// Functions - 카테고리 선택
+// ============================================================================
+
 async function onCategorySelected(filter: {
   code?: string;
   detail?: string;
@@ -630,7 +1114,6 @@ async function onCategorySelected(filter: {
   }
 }
 
-// 지식저장소 전체 선택 핸들러
 async function onSelectAllKnowledge() {
   console.log("[Training] Select ALL knowledge documents");
 
@@ -673,8 +1156,11 @@ async function onSelectAllKnowledge() {
   }
 }
 
-// 학습 시작 (실제 API 호출)
-const startTraining = async () => {
+// ============================================================================
+// Functions - 학습
+// ============================================================================
+
+async function startTraining() {
   if (selectedDocIds.value.length === 0) return;
 
   errorMessage.value = null;
@@ -685,7 +1171,6 @@ const startTraining = async () => {
       `[FINETUNE] Starting training with ${selectedDocIds.value.length} documents`
     );
 
-    // 파인튜닝 시작
     const response = await startFinetuning({
       doc_ids: selectedDocIds.value,
       model_name: "Qwen/Qwen2.5-14B-Instruct",
@@ -699,8 +1184,6 @@ const startTraining = async () => {
     console.log(`[FINETUNE] Job started: ${response.job_id}`);
 
     currentJobId.value = response.job_id;
-
-    // 폴링 시작
     startPolling();
   } catch (error: any) {
     console.error("[FINETUNE] Error:", error);
@@ -708,27 +1191,17 @@ const startTraining = async () => {
       error.message || "파인튜닝 시작 중 오류가 발생했습니다";
     isTraining.value = false;
   }
-};
+}
 
-// 완료 감지
-watch(isCompleted, (completed) => {
-  if (completed) {
-    isTraining.value = false;
+// ============================================================================
+// Lifecycle
+// ============================================================================
 
-    if (status.value?.status === "completed") {
-      alert(
-        `파인튜닝이 완료되었습니다!\n출력 경로: ${status.value.output_path}`
-      );
-    } else if (status.value?.status === "failed") {
-      errorMessage.value = status.value.error || "파인튜닝 실패";
-    }
-  }
+onMounted(() => {
+  loadFromLocalStorage();
+  fetchDocs();
 });
 
-// 초기 데이터 로드
-fetchDocs();
-
-// Cleanup
 onUnmounted(() => {
   stopPolling();
 });
@@ -751,6 +1224,13 @@ onUnmounted(() => {
 
 .scrollbar-zinc::-webkit-scrollbar-thumb:hover {
   background: #a1a1aa;
+}
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .line-clamp-2 {
