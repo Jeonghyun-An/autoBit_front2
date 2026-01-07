@@ -51,117 +51,9 @@
         </div>
       </div>
 
-      <!-- 폴더 관리 영역 -->
-      <div class="bg-white rounded-xl shadow-sm border border-zinc-200 p-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-zinc-900">문서 폴더</h2>
-          <button
-            type="button"
-            class="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white hover:bg-slate-700 transition-all flex items-center gap-2"
-            @click="showFolderCreationModal = true"
-          >
-            <Icon name="lucide:folder-plus" class="w-4 h-4" />
-            새 폴더
-          </button>
-        </div>
-
-        <!-- 폴더 목록 -->
-        <div
-          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
-        >
-          <div
-            v-for="folder in folders"
-            :key="folder.id"
-            class="group relative border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
-            :class="{
-              'ring-2 ring-slate-900 border-slate-900 bg-zinc-50':
-                currentFolder === folder.id,
-              'border-zinc-200 hover:border-zinc-300':
-                currentFolder !== folder.id,
-            }"
-            @click="loadFolder(folder.id)"
-          >
-            <!-- 폴더 아이콘 -->
-            <div
-              class="w-12 h-12 rounded-lg flex items-center justify-center mb-3"
-              :class="{
-                'bg-blue-100': currentFolder === folder.id,
-                'bg-zinc-100': currentFolder !== folder.id,
-              }"
-            >
-              <Icon
-                name="lucide:folder"
-                class="w-6 h-6"
-                :class="{
-                  'text-blue-600': currentFolder === folder.id,
-                  'text-zinc-600': currentFolder !== folder.id,
-                }"
-              />
-            </div>
-
-            <!-- 폴더 이름 (편집 가능) -->
-            <div class="flex items-center justify-between gap-2 mb-2">
-              <input
-                v-if="editingFolderId === folder.id"
-                v-model="editingFolderName"
-                type="text"
-                class="flex-1 px-2 py-1 text-sm font-semibold border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                @blur="saveFolderName(folder.id)"
-                @keyup.enter="saveFolderName(folder.id)"
-                @keyup.esc="cancelEditFolderName"
-                @click.stop
-              />
-              <h3
-                v-else
-                class="flex-1 text-sm font-semibold line-clamp-1"
-                :class="{
-                  'text-blue-900': currentFolder === folder.id,
-                  'text-zinc-900': currentFolder !== folder.id,
-                }"
-              >
-                {{ folder.name }}
-              </h3>
-
-              <!-- 편집/삭제 버튼 -->
-              <div
-                class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <button
-                  type="button"
-                  class="p-1 hover:bg-zinc-200 rounded transition-colors"
-                  @click.stop="startEditFolderName(folder.id, folder.name)"
-                  title="이름 변경"
-                >
-                  <Icon name="lucide:edit-2" class="w-3 h-3 text-zinc-600" />
-                </button>
-                <button
-                  type="button"
-                  class="p-1 hover:bg-red-100 rounded transition-colors"
-                  @click.stop="deleteFolder(folder.id)"
-                  title="폴더 삭제"
-                >
-                  <Icon name="lucide:trash-2" class="w-3 h-3 text-red-600" />
-                </button>
-              </div>
-            </div>
-
-            <!-- 문서 개수 -->
-            <p class="text-xs text-zinc-500">
-              <Icon name="lucide:file-text" class="w-3 h-3 inline mr-1" />
-              {{ folder.docIds.length }}개 문서
-            </p>
-
-            <!-- 생성 날짜 -->
-            <p class="text-xs text-zinc-400 mt-1">
-              {{ formatDate(folder.createdAt) }}
-            </p>
-          </div>
-        </div>
-      </div>
-
       <!-- 메인 컨텐츠: 좌측 카테고리 (1/3) + 우측 문서 목록 (2/3) -->
       <div class="bg-white rounded-xl shadow-sm border border-zinc-200">
-        <div class="flex h-[calc(100vh-480px)] min-h-[500px]">
+        <div class="flex h-[calc(100vh-240px)] min-h-[500px]">
           <!-- 좌측: 카테고리 선택 영역 (1/3) -->
           <div
             class="w-1/3 border-r border-zinc-200 flex flex-col overflow-hidden p-3 pr-0"
@@ -243,8 +135,7 @@
                   <button
                     type="button"
                     class="px-3 py-1.5 text-xs rounded-md bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
-                    @click="showFolderSelectModal = true"
-                    :disabled="selectedDocIds.length === 0"
+                    @click="openFolderModal(true)"
                   >
                     <Icon name="lucide:folder-input" class="w-3 h-3" />
                     폴더에 저장
@@ -448,119 +339,256 @@
         </div>
       </div>
     </div>
-
-    <!-- 폴더 생성 모달 -->
-    <Teleport to="body">
-      <div
-        v-if="showFolderCreationModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-        @click.self="showFolderCreationModal = false"
-      >
-        <div
-          class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6"
-          @click.stop
-        >
-          <h3 class="text-lg font-semibold text-zinc-900 mb-4">
-            새 폴더 만들기
-          </h3>
-          <input
-            v-model="newFolderName"
-            type="text"
-            placeholder="폴더 이름을 입력하세요"
-            class="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-            @keyup.enter="createFolder"
-            @keyup.esc="showFolderCreationModal = false"
-          />
-          <div class="flex justify-end gap-2">
-            <button
-              type="button"
-              class="px-4 py-2 text-sm rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-50 transition-all"
-              @click="showFolderCreationModal = false"
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              class="px-4 py-2 text-sm rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all"
-              @click="createFolder"
-              :disabled="!newFolderName.trim()"
-            >
-              만들기
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- 폴더 선택 모달 -->
+    <!-- 폴더 저장/관리 통합 모달 -->
     <Teleport to="body">
       <div
         v-if="showFolderSelectModal"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-        @click.self="showFolderSelectModal = false"
+        @click.self="closeFolderModal"
       >
         <div
-          class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6"
+          class="bg-white rounded-xl shadow-xl max-w-5xl w-full mx-4 overflow-hidden"
           @click.stop
         >
-          <h3 class="text-lg font-semibold text-zinc-900 mb-4">폴더 선택</h3>
-          <p class="text-sm text-zinc-600 mb-4">
-            선택한 {{ selectedDocIds.length }}개 문서를 저장할 폴더를 선택하세요
-          </p>
+          <!-- 헤더 -->
+          <div
+            class="p-6 border-b border-zinc-200 flex items-start justify-between gap-4"
+          >
+            <div>
+              <h3 class="text-lg font-semibold text-zinc-900">
+                폴더 저장 / 관리
+              </h3>
+              <p class="text-sm text-zinc-600 mt-1">
+                선택한
+                <span class="font-semibold text-slate-800">{{
+                  selectedDocIds.length
+                }}</span
+                >개 문서를 폴더에 저장하거나, 폴더를 생성/편집/삭제할 수
+                있습니다.
+              </p>
+            </div>
 
-          <!-- 폴더 목록 -->
-          <div class="space-y-2 max-h-[400px] overflow-y-auto mb-4">
-            <div
-              v-for="folder in folders"
-              :key="folder.id"
-              class="p-3 border border-zinc-200 rounded-lg hover:bg-zinc-50 cursor-pointer transition-all"
-              @click="saveToFolder(folder.id)"
+            <button
+              type="button"
+              class="p-2 rounded-lg hover:bg-zinc-100 transition-all"
+              @click="closeFolderModal"
+              title="닫기"
             >
-              <div class="flex items-center gap-3">
-                <Icon name="lucide:folder" class="w-5 h-5 text-blue-600" />
-                <div class="flex-1">
-                  <p class="text-sm font-semibold text-zinc-900">
-                    {{ folder.name }}
-                  </p>
-                  <p class="text-xs text-zinc-500">
-                    {{ folder.docIds.length }}개 문서
-                  </p>
+              <Icon name="lucide:x" class="w-5 h-5 text-zinc-600" />
+            </button>
+          </div>
+
+          <!-- 바디 -->
+          <div class="flex h-[70vh] min-h-[520px]">
+            <!-- 좌측: 폴더 리스트 + 관리 -->
+            <div
+              class="w-[45%] border-r border-zinc-200 p-6 flex flex-col overflow-hidden"
+            >
+              <!-- 상단 액션 -->
+              <div class="flex items-center justify-between mb-4">
+                <h4 class="text-sm font-semibold text-zinc-900">폴더 목록</h4>
+
+                <button
+                  type="button"
+                  class="px-3 py-2 text-xs rounded-lg bg-slate-900 text-white hover:bg-slate-700 transition-all flex items-center gap-2"
+                  @click="
+                    isCreatingFolder = true;
+                    newFolderName = '';
+                  "
+                >
+                  <Icon name="lucide:folder-plus" class="w-4 h-4" />
+                  새 폴더
+                </button>
+              </div>
+
+              <!-- 새 폴더 생성 인라인 -->
+              <div
+                v-if="isCreatingFolder"
+                class="mb-4 p-3 rounded-lg border border-zinc-200 bg-zinc-50"
+              >
+                <div class="flex items-center gap-2">
+                  <input
+                    v-model="newFolderName"
+                    type="text"
+                    placeholder="폴더 이름"
+                    class="flex-1 px-3 py-2 text-sm border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    @keyup.enter="createFolderInline"
+                    @keyup.esc="cancelCreateFolder"
+                  />
+                  <button
+                    type="button"
+                    class="px-3 py-2 text-xs rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all"
+                    :disabled="!newFolderName.trim()"
+                    @click="createFolderInline"
+                  >
+                    만들기
+                  </button>
+                  <button
+                    type="button"
+                    class="px-3 py-2 text-xs rounded-lg border border-zinc-300 text-zinc-600 hover:bg-white transition-all"
+                    @click="cancelCreateFolder"
+                  >
+                    취소
+                  </button>
                 </div>
-                <Icon
-                  name="lucide:chevron-right"
-                  class="w-4 h-4 text-zinc-400"
-                />
+              </div>
+
+              <!-- 폴더 목록 스크롤 -->
+              <div class="flex-1 overflow-y-auto pr-1 space-y-2">
+                <div
+                  v-for="folder in folders"
+                  :key="folder.id"
+                  class="group p-3 border rounded-lg cursor-pointer transition-all"
+                  :class="{
+                    'border-slate-900 ring-2 ring-slate-900 bg-zinc-50':
+                      activeFolderId === folder.id,
+                    'border-zinc-200 hover:bg-zinc-50 hover:border-zinc-300':
+                      activeFolderId !== folder.id,
+                  }"
+                  @click="selectActiveFolder(folder.id)"
+                >
+                  <div class="flex items-center gap-3">
+                    <Icon name="lucide:folder" class="w-5 h-5 text-blue-600" />
+
+                    <div class="flex-1 min-w-0">
+                      <!-- 이름 (편집 가능) -->
+                      <div class="flex items-center gap-2">
+                        <input
+                          v-if="editingFolderId === folder.id"
+                          v-model="editingFolderName"
+                          type="text"
+                          class="flex-1 px-2 py-1 text-sm font-semibold border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          @blur="saveFolderName(folder.id)"
+                          @keyup.enter="saveFolderName(folder.id)"
+                          @keyup.esc="cancelEditFolderName"
+                          @click.stop
+                        />
+                        <p
+                          v-else
+                          class="text-sm font-semibold text-zinc-900 truncate"
+                        >
+                          {{ folder.name }}
+                        </p>
+
+                        <!-- 편집/삭제 -->
+                        <div
+                          class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <button
+                            type="button"
+                            class="p-1 hover:bg-zinc-200 rounded transition-colors"
+                            @click.stop="
+                              startEditFolderName(folder.id, folder.name)
+                            "
+                            title="이름 변경"
+                          >
+                            <Icon
+                              name="lucide:edit-2"
+                              class="w-3 h-3 text-zinc-600"
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            class="p-1 hover:bg-red-100 rounded transition-colors"
+                            @click.stop="deleteFolder(folder.id)"
+                            title="폴더 삭제"
+                          >
+                            <Icon
+                              name="lucide:trash-2"
+                              class="w-3 h-3 text-red-600"
+                            />
+                          </button>
+                        </div>
+                      </div>
+
+                      <p class="text-xs text-zinc-500 mt-1">
+                        {{ folder.docIds.length }}개 문서 ·
+                        {{ formatDate(folder.updatedAt || folder.createdAt) }}
+                      </p>
+                    </div>
+
+                    <Icon
+                      name="lucide:chevron-right"
+                      class="w-4 h-4 text-zinc-400"
+                    />
+                  </div>
+                </div>
+
+                <!-- 폴더 없음 -->
+                <div
+                  v-if="folders.length === 0"
+                  class="text-center py-10 text-zinc-400"
+                >
+                  <Icon name="lucide:folder-x" class="w-12 h-12 mx-auto mb-2" />
+                  <p class="text-sm">폴더가 없습니다</p>
+                </div>
               </div>
             </div>
 
-            <!-- 폴더 없음 -->
-            <div
-              v-if="folders.length === 0"
-              class="text-center py-8 text-zinc-400"
-            >
-              <Icon name="lucide:folder-x" class="w-12 h-12 mx-auto mb-2" />
-              <p class="text-sm">폴더가 없습니다</p>
-              <button
-                type="button"
-                class="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                @click="
-                  showFolderSelectModal = false;
-                  showFolderCreationModal = true;
-                "
-              >
-                새 폴더 만들기
-              </button>
-            </div>
-          </div>
+            <!-- 우측: 저장 패널 -->
+            <div class="flex-1 p-6 flex flex-col">
+              <div class="mb-4">
+                <h4 class="text-sm font-semibold text-zinc-900">저장</h4>
+                <p class="text-sm text-zinc-600 mt-1">
+                  저장할 폴더를 선택한 뒤, 아래 버튼을 눌러주세요.
+                </p>
+              </div>
 
-          <div class="flex justify-end">
-            <button
-              type="button"
-              class="px-4 py-2 text-sm rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-50 transition-all"
-              @click="showFolderSelectModal = false"
-            >
-              취소
-            </button>
+              <!-- 선택된 폴더 요약 -->
+              <div class="p-4 rounded-lg border border-zinc-200 bg-zinc-50">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="text-xs text-zinc-500">선택된 폴더</p>
+                    <p
+                      class="text-sm font-semibold text-zinc-900 mt-1 truncate"
+                    >
+                      {{ activeFolder?.name || "폴더를 선택하세요" }}
+                    </p>
+                    <p v-if="activeFolder" class="text-xs text-zinc-500 mt-1">
+                      현재 저장됨: {{ activeFolder.docIds.length }}개 문서
+                    </p>
+                  </div>
+
+                  <button
+                    v-if="activeFolder"
+                    type="button"
+                    class="px-3 py-2 text-xs rounded-lg border border-zinc-300 text-zinc-700 hover:bg-white transition-all"
+                    @click="loadFolder(activeFolder.id)"
+                  >
+                    이 폴더 불러오기
+                  </button>
+                </div>
+              </div>
+
+              <!-- 저장 버튼 -->
+              <div class="mt-4 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  class="px-4 py-2 text-sm rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-50 transition-all"
+                  @click="closeFolderModal"
+                >
+                  닫기
+                </button>
+
+                <button
+                  type="button"
+                  class="px-4 py-2 text-sm rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                  :disabled="!activeFolderId || selectedDocIds.length === 0"
+                  @click="saveToFolder(activeFolderId!)"
+                >
+                  <Icon name="lucide:folder-input" class="w-4 h-4" />
+                  저장하기
+                </button>
+              </div>
+
+              <!-- 안내 -->
+              <div class="mt-6 text-xs text-zinc-400 leading-relaxed">
+                • “저장하기”는 선택된 문서를 폴더에
+                <span class="text-zinc-600 font-medium">추가</span>합니다 (기존
+                문서는 유지).<br />
+                • 폴더 이름은 목록에서 바로 수정할 수 있습니다.
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -619,6 +647,8 @@ const showFolderSelectModal = ref(false);
 const newFolderName = ref("");
 const editingFolderId = ref<string | null>(null);
 const editingFolderName = ref("");
+const activeFolderId = ref<string | null>(null);
+const isCreatingFolder = ref(false);
 
 // ============================================================================
 // State - 검색 & 선택
@@ -882,6 +912,60 @@ watch(isCompleted, (completed) => {
 // ============================================================================
 // Functions - 폴더 관리
 // ============================================================================
+const activeFolder = computed(() => {
+  if (!activeFolderId.value) return null;
+  return folders.value.find((f) => f.id === activeFolderId.value) || null;
+});
+function openFolderModal(preselect = false) {
+  showFolderSelectModal.value = true;
+
+  // 폴더를 미리 선택해 두고 열기
+  if (preselect) {
+    activeFolderId.value = currentFolder.value || folders.value[0]?.id || null;
+  } else {
+    // 저장 버튼 눌렀을 때도 “마지막 선택 폴더” 유지하고 싶으면 아래처럼
+    if (!activeFolderId.value) {
+      activeFolderId.value =
+        currentFolder.value || folders.value[0]?.id || null;
+    }
+  }
+}
+
+function closeFolderModal() {
+  showFolderSelectModal.value = false;
+  isCreatingFolder.value = false;
+  newFolderName.value = "";
+  // 편집 상태는 닫을 때 정리해도 되고 유지해도 됨
+  cancelEditFolderName();
+}
+
+function selectActiveFolder(folderId: string) {
+  activeFolderId.value = folderId;
+}
+function createFolderInline() {
+  if (!newFolderName.value.trim()) return;
+
+  const folder: DocumentFolder = {
+    id: `folder_${Date.now()}`,
+    name: newFolderName.value.trim(),
+    docIds: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  folders.value.push(folder);
+  activeFolderId.value = folder.id;
+
+  newFolderName.value = "";
+  isCreatingFolder.value = false;
+
+  console.log("[Folder] Created (inline):", folder);
+}
+
+function cancelCreateFolder() {
+  isCreatingFolder.value = false;
+  newFolderName.value = "";
+}
 
 function loadFromLocalStorage() {
   if (!process.client) return;
@@ -907,24 +991,6 @@ function loadFromLocalStorage() {
   }
 }
 
-function createFolder() {
-  if (!newFolderName.value.trim()) return;
-
-  const folder: DocumentFolder = {
-    id: `folder_${Date.now()}`,
-    name: newFolderName.value.trim(),
-    docIds: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  folders.value.push(folder);
-  newFolderName.value = "";
-  showFolderCreationModal.value = false;
-
-  console.log("[Folder] Created:", folder);
-}
-
 function deleteFolder(folderId: string) {
   if (!confirm("이 폴더를 삭제하시겠습니까?")) return;
 
@@ -933,6 +999,9 @@ function deleteFolder(folderId: string) {
   if (currentFolder.value === folderId) {
     currentFolder.value = null;
     selectedDocIds.value = [];
+  }
+  if (activeFolderId.value === folderId) {
+    activeFolderId.value = null;
   }
 
   console.log("[Folder] Deleted:", folderId);
@@ -956,7 +1025,7 @@ function saveToFolder(folderId: string) {
   folder.docIds = Array.from(combinedIds);
   folder.updatedAt = new Date().toISOString();
 
-  showFolderSelectModal.value = false;
+  closeFolderModal();
 
   console.log("[Folder] Saved to:", folder.name, folder.docIds.length);
   alert(
