@@ -53,7 +53,7 @@
 
       <!-- 메인 컨텐츠: 좌측 카테고리 (1/3) + 우측 문서 목록 (2/3) -->
       <div class="bg-white rounded-xl shadow-sm border border-zinc-200">
-        <div class="flex h-[calc(100vh-190px)] min-h-[500px]">
+        <div class="flex h-[calc(100vh-188px)] min-h-[500px]">
           <!-- 좌측: 카테고리 선택 영역 (1/3) -->
           <div
             class="w-1/3 border-r border-zinc-200 flex flex-col overflow-hidden p-3 pr-0"
@@ -82,7 +82,7 @@
                       v-model="docSearch"
                       type="text"
                       placeholder="문서 검색..."
-                      class="w-full pl-9 pr-4 py-2 text-sm border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
+                      class="w-full pl-9 pr-4 py-2 text-sm border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-300 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -92,7 +92,7 @@
                   <label class="text-xs text-zinc-600">정렬:</label>
                   <select
                     v-model="sortOrder"
-                    class="px-3 py-2 text-sm text-zinc-600 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:border-zinc-300 bg-white"
+                    class="px-3 py-2 text-sm text-zinc-600 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-300 bg-white"
                   >
                     <option value="date-desc">최신순</option>
                     <option value="date-asc">오래된순</option>
@@ -482,7 +482,7 @@
                         >
                           <button
                             type="button"
-                            class="px-2 py-1 hover:bg-zinc-200 rounded transition-colors"
+                            class="px-2 py-1 hover:bg-zinc-200 rounded-lg transition-colors"
                             @click.stop="
                               startEditFolderName(folder.id, folder.name)
                             "
@@ -495,7 +495,7 @@
                           </button>
                           <button
                             type="button"
-                            class="px-2 py-1 hover:bg-red-100 rounded transition-colors"
+                            class="px-2 py-1 hover:bg-zinc-200 rounded-lg transition-colors"
                             @click.stop="deleteFolder(folder.id)"
                             title="폴더 삭제"
                           >
