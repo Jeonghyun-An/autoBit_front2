@@ -1250,9 +1250,9 @@ async function startTraining() {
 
     const response = await startFinetuning({
       doc_ids: selectedDocIds.value,
-      model_name: "Qwen/Qwen2.5-14B-Instruct",
-      lora_r: 16,
-      lora_alpha: 32,
+      model_name: "Qwen/Qwen2.5-7B-Instruct",
+      lora_r: 8,
+      lora_alpha: 16,
       num_epochs: 3,
       batch_size: 2,
       learning_rate: 2e-4,
