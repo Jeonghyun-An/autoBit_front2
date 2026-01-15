@@ -53,7 +53,7 @@
 
       <!-- 메인 컨텐츠: 좌측 카테고리 (1/3) + 우측 문서 목록 (2/3) -->
       <div class="bg-white rounded-xl shadow-sm border border-zinc-200">
-        <div class="flex h-[calc(100vh-188px)] min-h-[500px]">
+        <div class="flex h-[calc(100vh-186px)] min-h-[500px]">
           <!-- 좌측: 카테고리 선택 영역 (1/3) -->
           <div
             class="w-1/3 border-r border-zinc-200 flex flex-col overflow-hidden p-3 pr-0"
@@ -146,7 +146,7 @@
 
             <!-- 문서 목록 (스크롤 가능) -->
             <div
-              class="flex-1 overflow-y-auto p-6 pt-4 scrollbar-zinc"
+              class="flex-1 overflow-y-auto p-6 py-4 scrollbar-zinc"
               style="scrollbar-gutter: stable"
             >
               <!-- 문서 목록 -->
@@ -1256,6 +1256,7 @@ async function startTraining() {
       num_epochs: 3,
       batch_size: 2,
       learning_rate: 2e-4,
+      max_seq_length: 1024,
     });
 
     console.log(`[FINETUNE] Job started: ${response.job_id}`);
