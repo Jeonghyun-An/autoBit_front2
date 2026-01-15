@@ -13,6 +13,7 @@ export type FinetuneConfig = {
   batch_size?: number;
   learning_rate?: number;
   output_name?: string;
+  max_seq_length?: number | string;
 };
 
 export type FinetuneStatus = {
