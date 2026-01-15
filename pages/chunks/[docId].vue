@@ -24,12 +24,13 @@
           </div>
 
           <div class="flex items-center gap-2 shrink-0">
-            <NuxtLink
-              to="/"
+            <button
+              type="button"
+              @click="$router.back()"
               class="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-xs inline-flex items-center gap-1 whitespace-nowrap"
             >
               <Icon name="ic:twotone-arrow-back" class="w-4 h-4" />돌아가기
-            </NuxtLink>
+            </button>
 
             <button
               v-if="pdfKey"
