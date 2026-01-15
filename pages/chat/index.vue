@@ -176,7 +176,7 @@
             <!-- 제목/정보 -->
             <div class="flex-1 min-w-0" @click="goChunks(d)">
               <div class="text-xs font-medium truncate">
-                {{ d.title || d.doc_id }}
+                {{ removeFileExtension(d.title || d.doc_id) }}
               </div>
               <div
                 v-if="d.uploaded_at"
@@ -389,7 +389,7 @@ import { useDocsList } from "@/composables/useDocsList";
 import RagMessageBubble from "@/components/Chat/MessageBubble.vue";
 import RagInputBar from "@/components/Chat/InputBar.vue";
 import KnowledgeMenu from "@/components/Chat/KnowledgeMenu.vue";
-
+import { removeFileExtension } from "~/utils/filename";
 import { generateId } from "~/utils/uuid";
 import { formatKST } from "~/utils/datetime";
 import bgPng from "~/assets/img/ic_floating_chat.png";

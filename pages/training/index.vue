@@ -187,7 +187,7 @@
                     <div class="flex-1 min-w-0">
                       <div class="flex items-start justify-between gap-2">
                         <h3 class="text-sm font-semibold line-clamp-2">
-                          {{ doc.title || doc.doc_id }}
+                          {{ removeFileExtension(doc.title || doc.doc_id) }}
                         </h3>
                       </div>
 
@@ -613,6 +613,7 @@ import {
   useFinetuningPolling,
 } from "@/composables/useFinetuneApi";
 import KnowledgeMenu from "@/components/Chat/KnowledgeMenu.vue";
+import { removeFileExtension } from "~/utils/filename";
 
 // ============================================================================
 // Types
