@@ -1,29 +1,75 @@
 // utils/filename.ts
 
 /**
- * 파일명에서 확장자를 제거하는 유틸리티 함수
- * .pdf.pdf 같은 중복 확장자도 모두 제거
- * @param filename - 전체 파일명 (예: "document.pdf.pdf")
- * @returns 확장자가 제거된 파일명 (예: "document")
+ * 일반적인 파일 확장자 목록
+ * 이 목록에 있는 확장자만 제거됩니다
+ */
+const COMMON_EXTENSIONS = [
+  // 문서
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+  ".odt",
+  ".ods",
+  ".odp",
+  ".rtf",
+  ".txt",
+  ".csv",
+  // 이미지
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".bmp",
+  ".svg",
+  ".webp",
+  ".tif",
+  ".tiff",
+  // 압축
+  ".zip",
+  ".rar",
+  ".7z",
+  ".tar",
+  ".gz",
+  ".bz2",
+  // 기타
+  ".html",
+  ".htm",
+  ".xml",
+  ".json",
+  ".md",
+];
+
+/**
+ * 파일명에서 일반적인 확장자만 제거하는 함수
+ * @param filename - 전체 파일명
+ * @returns 확장자가 제거된 파일명
  */
 export function removeFileExtension(filename: string): string {
   if (!filename) return "";
 
-  // .pdf, .PDF 같은 중복 확장자를 모두 제거
-  const pdfPattern = /\.pdf$/i;
   let result = filename;
 
-  // .pdf가 더 이상 없을 때까지 반복 제거
+  // 1. .pdf.pdf 같은 중복 확장자를 모두 제거
+  const pdfPattern = /\.pdf$/i;
   while (pdfPattern.test(result)) {
     result = result.replace(pdfPattern, "");
   }
 
-  // 그 외 일반 확장자도 제거 (마지막 점 기준)
+  // 2. 마지막 확장자가 일반적인 확장자 목록에 있으면 제거
   const lastDotIndex = result.lastIndexOf(".");
 
-  // 점이 있고, 파일명 중간이나 끝에 있으면 제거
   if (lastDotIndex > 0) {
-    result = result.substring(0, lastDotIndex);
+    const extension = result.substring(lastDotIndex).toLowerCase();
+
+    // 일반적인 확장자인 경우에만 제거
+    if (COMMON_EXTENSIONS.includes(extension)) {
+      result = result.substring(0, lastDotIndex);
+    }
   }
 
   return result;
@@ -55,7 +101,7 @@ export function getFilenameWithoutExtension(filepath: string): string {
   // 경로에서 파일명 추출
   const filename = filepath.split("/").pop() || filepath;
 
-  // 확장자 제거 (중복 제거 포함)
+  // 확장자 제거 (일반적인 확장자만)
   return removeFileExtension(filename);
 }
 
@@ -86,7 +132,7 @@ export function safePdfName(name: string): string {
   // 특수문자 제거
   const cleaned = name.replace(/[\\/:*?"<>|]+/g, "_").trim();
 
-  // 중복 .pdf 제거
+  // 확장자 제거 (일반적인 확장자만)
   const withoutExtension = removeFileExtension(cleaned);
 
   // .pdf 확장자 하나만 추가

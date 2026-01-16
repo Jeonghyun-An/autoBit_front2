@@ -97,7 +97,7 @@ onMounted(async () => {
   } else if (objectKey.value) {
     const docId = extractDocIdFromKey(objectKey.value);
     const meta = await getMetaByDocId(docId);
-    resolvedTitle.value = (meta?.title || docId) + ".pdf";
+    resolvedTitle.value = meta?.title || docId;
   }
 });
 
@@ -130,9 +130,4 @@ const downloadUrl = computed(() => {
   if (!origKey.value) return "";
   return getDownloadUrl(origKey.value, displayName.value);
 });
-
-function goBack() {
-  if (history.length > 1) history.back();
-  else navigateTo("/");
-}
 </script>
