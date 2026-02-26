@@ -65,7 +65,7 @@ const bgImage = ref(bgPng);
 
 // assistant 메시지용 Markdown HTML
 const html = computed(() =>
-  isUser.value ? "" : renderMarkdown(props.msg.content || "")
+  isUser.value ? "" : renderMarkdown(props.msg.content || ""),
 );
 
 function timeLabel(d = new Date()) {
@@ -79,8 +79,9 @@ function timeLabel(d = new Date()) {
 <style scoped>
 /* 선택: 코드/프리티어 스타일 조금 강화 */
 .prose :where(pre, code) {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 }
 .prose :where(pre) {
   padding: 0.75rem;

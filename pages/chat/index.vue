@@ -21,6 +21,7 @@
     <div
       class="w-[30%] min-w-[260px] max-w-sm border-r border-zinc-200 bg-white flex flex-col relative"
     >
+      <RagSettingsPanel />
       <!--  세션 관리 영역 -->
       <div
         class="p-3 pr-0 pb-2 border-b border-zinc-200 bg-zinc-50 flex-shrink-0"
@@ -393,6 +394,7 @@ import { removeFileExtension } from "~/utils/filename";
 import { generateId } from "~/utils/uuid";
 import { formatKST } from "~/utils/datetime";
 import bgPng from "~/assets/img/ic_floating_chat.png";
+import RagSettingsPanel from "~/components/Chat/RagSettingsPanel.vue";
 
 //  listDocsByCode 추가 (getMetaByDocId 제거)
 const { sendChat, getViewUrl, getDownloadUrl, listDocsByCode } = useApi();
@@ -413,7 +415,7 @@ const currentSessionId = computed(() => chatStore.currentSessionId.value);
 // 세션 목록 정렬
 const sortedSessions = computed(() => {
   return Array.from(chatStore.sessions.value.values()).sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
 });
 
@@ -503,7 +505,7 @@ watch(docSearch, () => {
 
 // 선택된 문서 객체 리스트 (태그용)
 const selectedDocs = computed(() =>
-  docs.value.filter((d) => selectedDocIds.value.includes(d.doc_id))
+  docs.value.filter((d) => selectedDocIds.value.includes(d.doc_id)),
 );
 
 // 태그에서 X 눌렀을 때
@@ -656,7 +658,7 @@ watch(
     console.log("[Debug] docCategoryMap created, size:", newMap.size);
     docCategoryMap.value = newMap;
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // async function onCategorySelected(filter: {
@@ -744,7 +746,7 @@ async function onCategorySelected(filter: {
       console.log("  selectedDocIds:", selectedDocIds.value);
       console.log(
         "  selectedCategories:",
-        Array.from(selectedCategories.value)
+        Array.from(selectedCategories.value),
       );
 
       // 특정 문서의 카테고리 정보 확인
@@ -813,7 +815,7 @@ function downloadOriginal(d: DocItem) {
   if (!d.original_key) return;
   const url = getDownloadUrl(
     d.original_key,
-    d.original_name || d.title || d.doc_id
+    d.original_name || d.title || d.doc_id,
   );
   window.open(url, "_blank", "noopener,noreferrer");
 }
@@ -849,7 +851,7 @@ const confirmDeleteSession = (sessionId: string) => {
 
 const onSend = async (
   query: string,
-  responseType: "short" | "long" | "ultra_long" = "short"
+  responseType: "short" | "long" | "ultra_long" = "short",
 ) => {
   // 1) 보내는 시점의 세션 ID를 고정
   const sessionIdAtSend = chatStore.currentSessionId.value;
@@ -878,7 +880,7 @@ const onSend = async (
       history,
       query,
       selectedDocIds.value.length > 0 ? selectedDocIds.value : undefined,
-      responseType
+      responseType,
     );
 
     const botMsg: ChatMessage = {
