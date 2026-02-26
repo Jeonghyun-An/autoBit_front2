@@ -10,8 +10,8 @@
         name="lucide:settings-2"
         class="w-4 h-4 text-zinc-500 flex-shrink-0"
       />
-      <span class="text-xs font-semibold text-zinc-600">RAG 파라미터 설정</span>
-      <span class="ml-auto text-[10px] text-zinc-400 mr-1">연구 전용</span>
+      <span class="text-xs font-semibold text-zinc-600">응답 설정</span>
+      <span class="ml-auto text-[10px] text-zinc-400 mr-1">파일럿 전용</span>
       <Icon
         name="lucide:chevron-down"
         :class="[
@@ -65,31 +65,31 @@
         <!-- 단문형 설정 -->
         <div v-if="selectedTab === 'short'" class="space-y-3">
           <ParamSlider
-            label="청크 수 (top_k)"
-            hint="검색할 문서 청크 수. 많을수록 참고 범위 넓어짐"
+            label="참고 문서 수"
+            hint="많을수록 참고 범위가 넓어짐"
             v-model="short.top_k"
             :min="1"
             :max="20"
             :step="1"
           />
           <ParamSlider
-            label="출력 토큰 (max_tokens)"
-            hint="답변 최대 길이"
+            label="답변 최대 길이"
+            hint="길수록 더 자세한 답변. 단문형은 짧게 유지 권장"
             v-model="short.max_tokens"
             :min="100"
             :max="1000"
             :step="50"
           />
           <ParamSlider
-            label="컨텍스트 예산"
-            hint="프롬프트에 넣을 청크 토큰 한도"
+            label="참고 내용 분량"
+            hint="많을수록 풍부하지만 느려짐"
             v-model="short.context_budget"
             :min="256"
             :max="4096"
             :step="256"
           />
           <ParamSlider
-            label="Temperature"
+            label="답변 일관성"
             hint="0 = 문서에 충실한 답변 / 1 = 다양한 표현의 답변"
             v-model="short.temperature"
             :min="0"
@@ -102,31 +102,31 @@
         <!-- 장문형 설정 -->
         <div v-if="selectedTab === 'long'" class="space-y-3">
           <ParamSlider
-            label="청크 수 (top_k)"
-            hint="검색할 문서 청크 수"
+            label="참고 문서 수"
+            hint="많을수록 참고 범위가 넓어짐"
             v-model="long.top_k"
             :min="1"
             :max="30"
             :step="1"
           />
           <ParamSlider
-            label="출력 토큰 (max_tokens)"
-            hint="답변 최대 길이"
+            label="답변 최대 길이"
+            hint="길수록 더 자세한 답변"
             v-model="long.max_tokens"
             :min="500"
             :max="7000"
             :step="100"
           />
           <ParamSlider
-            label="컨텍스트 예산"
-            hint="프롬프트에 넣을 청크 토큰 한도"
+            label="참고 내용 분량"
+            hint="많을수록 풍부하지만 느려짐"
             v-model="long.context_budget"
             :min="512"
             :max="8192"
             :step="512"
           />
           <ParamSlider
-            label="Temperature"
+            label="답변 일관성"
             hint="0 = 문서에 충실한 답변 / 1 = 다양한 표현의 답변"
             v-model="long.temperature"
             :min="0"
@@ -139,29 +139,58 @@
         <!-- 초장문형 설정 -->
         <div v-if="selectedTab === 'ultra'" class="space-y-3">
           <ParamSlider
-            label="청크 수 (top_k)"
-            hint="초장문 모드 검색 청크 수. 많을수록 응답 느림"
+            label="참고 문서 단락 수"
+            hint="많을 수록 응답이 느려짐"
             v-model="ultra.top_k"
             :min="50"
             :max="150"
             :step="10"
           />
           <ParamSlider
-            label="출력 토큰 (max_tokens)"
-            hint="초장문 답변 최대 길이"
+            label="답변 최대 길이"
+            hint="초장문형 답변의 최대 길이"
             v-model="ultra.max_tokens"
             :min="1000"
             :max="5000"
             :step="500"
           />
           <ParamSlider
-            label="Temperature"
+            label="답변 일관성"
             hint="0 = 문서에 충실한 답변 / 1 = 다양한 표현의 답변"
             v-model="ultra.temperature"
             :min="0"
             :max="1"
             :step="0.1"
             :decimals="1"
+          />
+        </div>
+
+        <!-- 검색 설정 -->
+        <div v-if="selectedTab === 'search'" class="space-y-3">
+          <p class="text-[11px] text-zinc-400 leading-relaxed">
+            검색된 문서 내용 중 얼마나 관련성 높은 것만 답변에 포함할지
+            조정합니다.
+            <br />
+            낮출수록 더 많은 문서가 포함되어 풍부하지만, 너무 낮으면 관련성 낮은
+            정보가 섞일 수 있습니다.
+          </p>
+          <ParamSlider
+            label="답변 포함 기준 (단문/장문)"
+            hint="모든 검색 결과 포함 / 가장 관련성 높은 결과만 포함"
+            v-model="search.base_score_threshold"
+            :min="0"
+            :max="1"
+            :step="0.05"
+            :decimals="2"
+          />
+          <ParamSlider
+            label="답변 포함 기준 (초장문)"
+            hint="모든 검색 결과 포함 / 가장 관련성 높은 결과만 포함"
+            v-model="search.ultra_score_threshold"
+            :min="0"
+            :max="1"
+            :step="0.05"
+            :decimals="2"
           />
         </div>
 
@@ -192,57 +221,67 @@
             class="text-[10px] text-zinc-400 cursor-pointer hover:text-zinc-600 select-none list-none flex items-center gap-1"
           >
             <Icon name="lucide:info" class="w-3 h-3" />
-            서버 현재 적용값 확인
+            현재 적용값 확인
           </summary>
           <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
             <template v-if="serverConfig.short">
-              <span class="text-zinc-400">단문 top_k</span>
+              <span class="text-zinc-400">단문 · 참고 문서 수</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.short.top_k
               }}</span>
-              <span class="text-zinc-400">단문 max_tokens</span>
+              <span class="text-zinc-400">단문 · 답변 최대 길이</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.short.max_tokens
               }}</span>
-              <span class="text-zinc-400">단문 temperature</span>
-              <span class="text-zinc-700 font-medium">{{
-                serverConfig.short.temperature
-              }}</span>
-              <span class="text-zinc-400">단문 context_budget</span>
+              <span class="text-zinc-400">단문 · 참고 내용 분량</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.short.context_budget
               }}</span>
+              <span class="text-zinc-400">단문 · 답변 일관성</span>
+              <span class="text-zinc-700 font-medium">{{
+                serverConfig.short.temperature
+              }}</span>
             </template>
             <template v-if="serverConfig.long">
-              <span class="text-zinc-400">장문 top_k</span>
+              <span class="text-zinc-400">장문 · 참고 문서 수</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.long.top_k
               }}</span>
-              <span class="text-zinc-400">장문 max_tokens</span>
+              <span class="text-zinc-400">장문 · 답변 최대 길이</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.long.max_tokens
               }}</span>
-              <span class="text-zinc-400">장문 temperature</span>
-              <span class="text-zinc-700 font-medium">{{
-                serverConfig.long.temperature
-              }}</span>
-              <span class="text-zinc-400">장문 context_budget</span>
+              <span class="text-zinc-400">장문 · 참고 내용 분량</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.long.context_budget
               }}</span>
+              <span class="text-zinc-400">장문 · 답변 일관성</span>
+              <span class="text-zinc-700 font-medium">{{
+                serverConfig.long.temperature
+              }}</span>
             </template>
             <template v-if="serverConfig.ultra_long">
-              <span class="text-zinc-400">초장문 top_k</span>
+              <span class="text-zinc-400">초장문 · 참고 문서 수</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.ultra_long.top_k
               }}</span>
-              <span class="text-zinc-400">초장문 max_tokens</span>
+              <span class="text-zinc-400">초장문 · 답변 최대 길이</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.ultra_long.max_tokens
               }}</span>
-              <span class="text-zinc-400">초장문 temperature</span>
+              <span class="text-zinc-400">초장문 · 답변 일관성</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.ultra_long.temperature
+              }}</span>
+            </template>
+            <template v-if="serverConfig.search">
+              <span class="text-zinc-400">단/장문 · 포함 기준</span>
+              <span class="text-zinc-700 font-medium">{{
+                serverConfig.search.base_score_threshold
+              }}</span>
+              <span class="text-zinc-400">초장문 · 포함 기준</span>
+              <span class="text-zinc-700 font-medium">{{
+                serverConfig.search.ultra_score_threshold
               }}</span>
             </template>
           </div>
@@ -278,6 +317,7 @@ type RagConfig = {
     context_budget: number;
   };
   ultra_long: { top_k: number; max_tokens: number; temperature: number };
+  search: { base_score_threshold: number; ultra_score_threshold: number };
 };
 
 // ==================== 상태 ====================
@@ -286,12 +326,13 @@ const isLoading = ref(false);
 const statusMsg = ref("");
 const statusType = ref<"success" | "error">("success");
 const serverConfig = ref<RagConfig | null>(null);
-const selectedTab = ref<"short" | "long" | "ultra">("short");
+const selectedTab = ref<"short" | "long" | "ultra" | "search">("short");
 
 const tabs = [
   { value: "short", label: "단문형" },
   { value: "long", label: "장문형" },
   { value: "ultra", label: "초장문형" },
+  { value: "search", label: "검색" },
 ] as const;
 
 // 로컬 슬라이더 상태 (서버 로드 전 기본값)
@@ -308,6 +349,7 @@ const long = ref({
   context_budget: 4096,
 });
 const ultra = ref({ top_k: 150, max_tokens: 5000, temperature: 0.1 });
+const search = ref({ base_score_threshold: 0.25, ultra_score_threshold: 0.25 });
 
 // ==================== 서버 현재값 로드 ====================
 onMounted(async () => {
@@ -345,6 +387,10 @@ async function loadConfig() {
       ultra.value.max_tokens = data.ultra_long.max_tokens;
       ultra.value.temperature = data.ultra_long.temperature;
     }
+    if (data.search) {
+      search.value.base_score_threshold = data.search.base_score_threshold;
+      search.value.ultra_score_threshold = data.search.ultra_score_threshold;
+    }
   } catch (e) {
     console.warn("[RagSettings] 설정 로드 실패:", e);
   }
@@ -371,6 +417,8 @@ async function applyConfig() {
         ultra_top_k: ultra.value.top_k,
         ultra_max_tokens: ultra.value.max_tokens,
         ultra_temperature: ultra.value.temperature,
+        base_score_threshold: search.value.base_score_threshold,
+        ultra_score_threshold: search.value.ultra_score_threshold,
       }),
     });
 
