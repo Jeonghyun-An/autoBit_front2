@@ -4,14 +4,14 @@
     <button
       type="button"
       class="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-zinc-50 transition-colors"
-      @click="isOpen = !isOpen"
+      @click="togglePanel"
     >
       <Icon
         name="lucide:settings-2"
         class="w-4 h-4 text-zinc-500 flex-shrink-0"
       />
       <span class="text-xs font-semibold text-zinc-600">RAG 파라미터 설정</span>
-      <span class="ml-auto text-[10px] text-zinc-400 mr-1">파일럿 전용</span>
+      <span class="ml-auto text-[10px] text-zinc-400 mr-1">연구 전용</span>
       <Icon
         name="lucide:chevron-down"
         :class="[
@@ -90,7 +90,7 @@
           />
           <ParamSlider
             label="Temperature"
-            hint="0 = 일관된 답변 / 1 = 창의적 답변"
+            hint="0 = 문서에 충실한 답변 / 1 = 다양한 표현의 답변"
             v-model="short.temperature"
             :min="0"
             :max="1"
@@ -114,7 +114,7 @@
             hint="답변 최대 길이"
             v-model="long.max_tokens"
             :min="500"
-            :max="5000"
+            :max="7000"
             :step="100"
           />
           <ParamSlider
@@ -127,7 +127,7 @@
           />
           <ParamSlider
             label="Temperature"
-            hint="0 = 일관된 답변 / 1 = 창의적 답변"
+            hint="0 = 문서에 충실한 답변 / 1 = 다양한 표현의 답변"
             v-model="long.temperature"
             :min="0"
             :max="1"
@@ -156,7 +156,7 @@
           />
           <ParamSlider
             label="Temperature"
-            hint="0 = 일관된 답변 / 1 = 창의적 답변"
+            hint="0 = 문서에 충실한 답변 / 1 = 다양한 표현의 답변"
             v-model="ultra.temperature"
             :min="0"
             :max="1"
@@ -313,6 +313,13 @@ const ultra = ref({ top_k: 150, max_tokens: 5000, temperature: 0.1 });
 onMounted(async () => {
   await loadConfig();
 });
+
+async function togglePanel() {
+  isOpen.value = !isOpen.value;
+  if (isOpen.value) {
+    await loadConfig();
+  }
+}
 
 async function loadConfig() {
   try {
