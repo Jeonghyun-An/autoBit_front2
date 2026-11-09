@@ -21,7 +21,8 @@
     <div
       class="w-[30%] min-w-[260px] max-w-sm border-r border-zinc-200 bg-white flex flex-col relative"
     >
-      <RagSettingsPanel />
+      <!-- RAG 설정 패널은 관리자 전용 (운영 Gateway 에서 admin 경로는 관리자 IP 만 허용) -->
+      <RagSettingsPanel v-if="isAdmin" />
       <!--  세션 관리 영역 -->
       <div
         class="p-3 pr-0 pb-2 border-b border-zinc-200 bg-zinc-50 flex-shrink-0"
