@@ -11,6 +11,12 @@
               <p class="text-sm text-zinc-500 mt-0.5">
                 선택한 문서로 모델 파인튜닝
               </p>
+              <NuxtLink
+                to="/admin"
+                class="inline-block mt-1 text-xs text-zinc-500 underline hover:text-zinc-700"
+              >
+                ← 관리자 화면 (채팅 · 응답 설정)
+              </NuxtLink>
             </div>
           </div>
 

@@ -44,6 +44,30 @@
           {{ statusMsg }}
         </div>
 
+        <!-- 시험 모드: 슬라이더 값을 이 대화의 질문에만 적용 (서버 전체 설정은 그대로) -->
+        <label
+          class="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 cursor-pointer"
+        >
+          <input
+            v-model="testMode"
+            type="checkbox"
+            class="mt-0.5 accent-emerald-600"
+          />
+          <span class="text-[11px] leading-relaxed text-emerald-800">
+            <b>시험 모드</b> — 아래 값으로 이 대화의 질문에만 적용합니다. 서버
+            설정과 다른 사용자에게는 영향이 없습니다. 마음에 들면 “전체에
+            적용”을 누르세요.
+          </span>
+        </label>
+        <button
+          type="button"
+          class="text-[11px] text-zinc-500 underline hover:text-zinc-700 disabled:opacity-50"
+          :disabled="isLoading"
+          @click="loadConfig(true)"
+        >
+          서버에 적용된 값으로 되돌리기
+        </button>
+
         <!-- 모드 탭 -->
         <div class="flex gap-1 bg-zinc-100 rounded-lg p-1">
           <button
@@ -202,7 +226,7 @@
             :disabled="isLoading"
             @click="resetConfig"
           >
-            기본값 복원
+            서버 기본값 복원
           </button>
           <button
             type="button"
@@ -211,7 +235,7 @@
             @click="applyConfig"
           >
             <span v-if="isLoading">적용 중...</span>
-            <span v-else>적용하기</span>
+            <span v-else>전체에 적용</span>
           </button>
         </div>
 
@@ -292,8 +316,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, toRef } from "vue";
 import ParamSlider from "@/components/Chat/ParamSlider.vue";
+import { useRagDraft } from "@/composables/useRagDraft";
+
+const props = defineProps<{ defaultOpen?: boolean }>();
 
 // ==================== API Base ====================
 const config = useRuntimeConfig();
@@ -321,7 +348,7 @@ type RagConfig = {
 };
 
 // ==================== 상태 ====================
-const isOpen = ref(false);
+const isOpen = ref(props.defaultOpen ?? false);
 const isLoading = ref(false);
 const statusMsg = ref("");
 const statusType = ref<"success" | "error">("success");
@@ -335,40 +362,34 @@ const tabs = [
   { value: "search", label: "검색" },
 ] as const;
 
-// 로컬 슬라이더 상태 (서버 로드 전 기본값)
-const short = ref({
-  top_k: 3,
-  max_tokens: 400,
-  temperature: 0.0,
-  context_budget: 1024,
-});
-const long = ref({
-  top_k: 10,
-  max_tokens: 3096,
-  temperature: 0.1,
-  context_budget: 4096,
-});
-const ultra = ref({ top_k: 150, max_tokens: 5000, temperature: 0.1 });
-const search = ref({ base_score_threshold: 0.25, ultra_score_threshold: 0.25 });
+// 슬라이더 상태는 채팅(시험 모드)과 공유한다 (composables/useRagDraft.ts)
+const { draft, testMode } = useRagDraft();
+const short = toRef(draft.value, "short");
+const long = toRef(draft.value, "long");
+const ultra = toRef(draft.value, "ultra");
+const search = toRef(draft.value, "search");
+// 서버 값을 한 번이라도 불러왔는지 (페이지를 오가도 작업 중인 슬라이더 값을 덮어쓰지 않기 위함)
+const loaded = useState<boolean>("rag-draft-loaded", () => false);
 
 // ==================== 서버 현재값 로드 ====================
 onMounted(async () => {
-  await loadConfig();
+  await loadConfig(!loaded.value);
 });
 
-async function togglePanel() {
+// 열고 닫을 때 슬라이더 값을 서버 값으로 덮어쓰지 않는다 (시험 중인 값 유지)
+function togglePanel() {
   isOpen.value = !isOpen.value;
-  if (isOpen.value) {
-    await loadConfig();
-  }
 }
 
-async function loadConfig() {
+// syncSliders=false 이면 "현재 적용값 확인"만 갱신하고 슬라이더는 그대로 둔다
+async function loadConfig(syncSliders = true) {
   try {
     const res = await fetch(`${API}/admin/rag-config`);
     if (!res.ok) return;
     const data: RagConfig & { note?: string } = await res.json();
     serverConfig.value = data;
+    if (!syncSliders) return;
+    loaded.value = true;
 
     if (data.short) {
       short.value.top_k = data.short.top_k;
@@ -398,6 +419,12 @@ async function loadConfig() {
 
 // ==================== 적용 ====================
 async function applyConfig() {
+  if (
+    !window.confirm(
+      "서버 전체에 적용합니다. 모든 사용자의 다음 질문부터 이 값이 쓰입니다. 계속할까요?",
+    )
+  )
+    return;
   isLoading.value = true;
   statusMsg.value = "";
 
@@ -426,7 +453,7 @@ async function applyConfig() {
 
     if (res.ok) {
       statusType.value = "success";
-      statusMsg.value = "✓ 적용되었습니다. 다음 질문부터 반영됩니다.";
+      statusMsg.value = "✓ 서버 전체에 적용되었습니다. 모든 사용자의 다음 질문부터 반영됩니다.";
       if (data.current) serverConfig.value = data.current as RagConfig;
     } else {
       statusType.value = "error";
@@ -445,13 +472,19 @@ async function applyConfig() {
 
 // ==================== 초기화 ====================
 async function resetConfig() {
+  if (
+    !window.confirm(
+      "서버 설정을 기본값으로 되돌립니다(모든 사용자에게 적용). 계속할까요?",
+    )
+  )
+    return;
   isLoading.value = true;
   try {
     const res = await fetch(`${API}/admin/rag-config/reset`, {
       method: "POST",
     });
     if (res.ok) {
-      await loadConfig();
+      await loadConfig(true);
       statusType.value = "success";
       statusMsg.value = "✓ 기본값으로 복원되었습니다.";
     }

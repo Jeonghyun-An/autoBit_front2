@@ -409,7 +409,9 @@ export function useApi() {
     history: { role: "user" | "assistant"; content: string }[],
     query: string,
     docIds?: string[],
-    responseType: "short" | "long" | "ultra_long" = "short"
+    responseType: "short" | "long" | "ultra_long" = "short",
+    // 관리자 화면 전용: /admin/ask 로 질문하고, overrides 는 이 질문에만 적용된다
+    opts?: { admin?: boolean; overrides?: Record<string, number> }
   ) {
     const actualResponseType: "short" | "long" =
       responseType === "ultra_long" ? "long" : responseType;
@@ -427,13 +429,16 @@ export function useApi() {
     if (docIds && docIds.length > 0) {
       body.doc_ids = docIds;
     }
+    if (opts?.admin && opts.overrides) {
+      body.overrides = opts.overrides;
+    }
     console.log(
       `[API] sendChat: response_type=${responseType}, docIds=${
         docIds?.length || 0
       }`
     );
 
-    const res = await fetch(`${API}/ask`, {
+    const res = await fetch(`${API}${opts?.admin ? "/admin/ask" : "/ask"}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
