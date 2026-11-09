@@ -505,6 +505,8 @@ export function useApi() {
     if (!full && maxChars != null) qs.set("max_chars", String(maxChars));
 
     const r = await fetch(`${API}/debug/milvus/by-doc?${qs.toString()}`);
+    // 운영 Gateway 는 debug 경로를 관리자 IP 에만 열어 준다
+    if (r.status === 403) throw new Error("청크 보기는 관리자만 이용할 수 있습니다.");
     if (!r.ok) throw new Error(await r.text());
     const { items } = (await r.json()) as { items: any[] };
     return items || [];

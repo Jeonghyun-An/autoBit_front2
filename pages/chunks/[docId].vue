@@ -64,7 +64,7 @@
           <input
             v-model="q"
             type="text"
-            placeholder="청크 내에서 검색..."
+            placeholder="문서 내에서 검색..."
             class="px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm w-72"
           />
           <select
@@ -72,7 +72,7 @@
             class="px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm"
           >
             <option value="page">페이지순</option>
-            <option value="idx">청크 인덱스</option>
+            <option value="idx">인덱스순</option>
           </select>
           <label class="text-sm text-zinc-400 inline-flex items-center gap-2">
             <input type="checkbox" v-model="hideMeta" class="accent-zinc-300" />
@@ -284,7 +284,7 @@ watch(
     totalChunks.value = null;
     chunks.value = [];
     await Promise.all([loadMeta(), loadCount(), loadChunks()]);
-  }
+  },
 );
 
 // -------- 유틸 --------
@@ -321,7 +321,7 @@ function removeSectionEcho(section: string, body: string) {
     new RegExp("^\\[[-+•*\\s]*" + escapeRegExp(sec) + "\\s*\\]\\s*\\n?", "u"),
     new RegExp(
       "^(section|섹션)\\s*[:：]\\s*" + escapeRegExp(sec) + "\\s*\\n?",
-      "iu"
+      "iu",
     ),
   ];
   for (const p of pats) b = b.replace(p, "");
@@ -386,7 +386,7 @@ async function loadChunks() {
         chunk: it.chunk ?? it.text ?? it.content ?? it?.metadata?.text ?? "",
         chunk_index: it.chunk_index ?? it.idx ?? it.index ?? null,
         score: it.score ?? it.similarity ?? it.re_score ?? null,
-      })
+      }),
     );
   } catch (e: any) {
     error.value = e?.message || String(e);
@@ -412,7 +412,7 @@ const visibleChunks = computed(() => {
     ? arr.filter(
         (c) =>
           (c.chunk || "").toLowerCase().includes(qq) ||
-          (c.section || "").toLowerCase().includes(qq)
+          (c.section || "").toLowerCase().includes(qq),
       )
     : arr;
 
@@ -456,6 +456,6 @@ watch(
     chunks.value = [];
     limit.value = 300;
     await reload();
-  }
+  },
 );
 </script>

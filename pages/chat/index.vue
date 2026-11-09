@@ -175,7 +175,11 @@
             />
 
             <!-- 제목/정보 -->
-            <div class="flex-1 min-w-0" @click="goChunks(d)">
+            <div
+              class="flex-1 min-w-0"
+              :title="isAdmin ? '청크 보기' : undefined"
+              @click="goChunks(d)"
+            >
               <div class="text-xs font-medium truncate">
                 {{ removeFileExtension(d.title || d.doc_id) }}
               </div>
@@ -399,6 +403,8 @@ import RagSettingsPanel from "~/components/Chat/RagSettingsPanel.vue";
 //  listDocsByCode 추가 (getMetaByDocId 제거)
 const { sendChat, getViewUrl, getDownloadUrl, listDocsByCode } = useApi();
 const { docs, hasData, isLoading, fetchDocs } = useDocsList();
+// 청크 보기는 관리자 전용 (운영 Gateway 에서 debug 경로는 관리자 IP 만 허용)
+const { isAdmin, checkAdmin } = useAdminAccess();
 // const messages = ref<ChatMessage[]>([]);
 const bgImage = ref(bgPng);
 const chatStore = useChatStore();
@@ -535,6 +541,7 @@ function clearSelectedDocs() {
 }
 
 function goChunks(d: DocItem) {
+  if (!isAdmin.value) return;
   router.push(`/chunks/${encodeURIComponent(d.doc_id)}`);
 }
 // 지식저장소 전체 선택 핸들러
@@ -762,6 +769,7 @@ async function onCategorySelected(filter: {
 }
 //  onMounted - 메타 프리로드 제거
 onMounted(async () => {
+  checkAdmin();
   await fetchDocs();
   window.addEventListener("click", onGlobalClick);
   setTimeout(() => {
