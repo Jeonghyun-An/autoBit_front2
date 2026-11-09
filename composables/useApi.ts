@@ -420,7 +420,10 @@ export function useApi() {
     const body: any = {
       question: query,
       top_k: 3,
-      history: history.map((m) => ({ role: m.role, content: m.content })),
+      // 서버 기준(최근 10건·건당 2,000자)에 맞춰 보냄 — 긴 대화에서도 요청 크기가 커지지 않도록
+      history: history
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: (m.content || "").slice(0, 2000) })),
       response_type: actualResponseType, // "short" | "long"
       long_context: isLongContext, // true | false
     };
@@ -510,6 +513,8 @@ export function useApi() {
     if (!full && maxChars != null) qs.set("max_chars", String(maxChars));
 
     const r = await fetch(`${API}/debug/milvus/by-doc?${qs.toString()}`);
+    // 운영 Gateway 는 debug 경로를 관리자 IP 에만 열어 준다
+    if (r.status === 403) throw new Error("청크 보기는 관리자만 이용할 수 있습니다.");
     if (!r.ok) throw new Error(await r.text());
     const { items } = (await r.json()) as { items: any[] };
     return items || [];

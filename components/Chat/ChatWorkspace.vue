@@ -202,7 +202,11 @@
             />
 
             <!-- 제목/정보 -->
-            <div class="flex-1 min-w-0" @click="goChunks(d)">
+            <div
+              class="flex-1 min-w-0"
+              :title="admin ? '청크 보기' : undefined"
+              @click="onDocTitleClick(d)"
+            >
               <div class="text-xs font-medium truncate">
                 {{ removeFileExtension(d.title || d.doc_id) }}
               </div>
@@ -568,6 +572,11 @@ function clearSelectedDocs() {
 
 function goChunks(d: DocItem) {
   router.push(`/chunks/${encodeURIComponent(d.doc_id)}`);
+}
+// 문서 제목 클릭: 관리자는 청크 보기, 일반 사용자는 체크박스와 같이 선택/해제
+function onDocTitleClick(d: DocItem) {
+  if (props.admin) goChunks(d);
+  else toggleSelect(d.doc_id);
 }
 // 지식저장소 전체 선택 핸들러
 async function onSelectAllKnowledge() {

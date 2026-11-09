@@ -100,6 +100,7 @@
               : '질문을 입력하세요. 무엇이 궁금한가요?'
           "
           v-model="value"
+          maxlength="2000"
           :disabled="disabled || isTranscribing"
           @keydown="onKeyDown"
         />

@@ -611,6 +611,8 @@
 </template>
 
 <script setup lang="ts">
+// 관리자가 아니면 사용자 화면으로 이동 (middleware/admin-only.ts)
+definePageMeta({ middleware: "admin-only" });
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useDocsList } from "@/composables/useDocsList";
 import { useApi, type DocItem } from "@/composables/useApi";

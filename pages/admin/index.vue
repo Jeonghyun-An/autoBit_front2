@@ -5,4 +5,7 @@
 
 <script setup lang="ts">
 import ChatWorkspace from "~/components/Chat/ChatWorkspace.vue";
+
+// 관리자가 아니면 사용자 화면으로 이동 (middleware/admin-only.ts)
+definePageMeta({ middleware: "admin-only" });
 </script>

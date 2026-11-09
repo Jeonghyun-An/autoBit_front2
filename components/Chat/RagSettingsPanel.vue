@@ -89,7 +89,7 @@
         <!-- 단문형 설정 -->
         <div v-if="selectedTab === 'short'" class="space-y-3">
           <ParamSlider
-            label="참고 문서 수"
+            label="참고 문서 단락 수"
             hint="많을수록 참고 범위가 넓어짐"
             v-model="short.top_k"
             :min="1"
@@ -98,7 +98,7 @@
           />
           <ParamSlider
             label="답변 최대 길이"
-            hint="길수록 더 자세한 답변. 단문형은 짧게 유지 권장"
+            hint="단문형은 짧게 유지 권장"
             v-model="short.max_tokens"
             :min="100"
             :max="1000"
@@ -126,7 +126,7 @@
         <!-- 장문형 설정 -->
         <div v-if="selectedTab === 'long'" class="space-y-3">
           <ParamSlider
-            label="참고 문서 수"
+            label="참고 문서 단락 수"
             hint="많을수록 참고 범위가 넓어짐"
             v-model="long.top_k"
             :min="1"
@@ -249,7 +249,7 @@
           </summary>
           <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
             <template v-if="serverConfig.short">
-              <span class="text-zinc-400">단문 · 참고 문서 수</span>
+              <span class="text-zinc-400">단문 · 참고 문서 단락 수</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.short.top_k
               }}</span>
@@ -267,7 +267,7 @@
               }}</span>
             </template>
             <template v-if="serverConfig.long">
-              <span class="text-zinc-400">장문 · 참고 문서 수</span>
+              <span class="text-zinc-400">장문 · 참고 문서 단락 수</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.long.top_k
               }}</span>
@@ -285,7 +285,7 @@
               }}</span>
             </template>
             <template v-if="serverConfig.ultra_long">
-              <span class="text-zinc-400">초장문 · 참고 문서 수</span>
+              <span class="text-zinc-400">초장문 · 참고 문서 단락 수</span>
               <span class="text-zinc-700 font-medium">{{
                 serverConfig.ultra_long.top_k
               }}</span>
