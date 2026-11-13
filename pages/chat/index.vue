@@ -354,7 +354,7 @@
           <!-- 답변 생성 중 로딩 버블 -->
           <div v-if="answering" class="flex w-full justify-start items-start">
             <div
-              class="max-w-[80%] rounded-2xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 inline-flex items-center gap-2"
+              class="max-w-[80%] rounded-2xl border border-zinc-800 bg-zinc-900/60 text-white px-3 py-2 inline-flex items-center gap-2"
             >
               <Icon
                 name="eos-icons:bubble-loading"

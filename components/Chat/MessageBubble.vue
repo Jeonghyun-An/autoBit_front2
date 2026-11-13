@@ -27,7 +27,7 @@
       </div>
       <div
         v-else
-        class="prose prose-sm dark:prose-invert max-w-none leading-relaxed"
+        class="answer-body prose prose-sm prose-invert max-w-none leading-relaxed"
         style="word-break: break-word; overflow-wrap: break-word"
         v-html="html"
       />
@@ -77,6 +77,24 @@ function timeLabel(d = new Date()) {
 </script>
 
 <style scoped>
+/* 답변 말풍선은 배경이 항상 어둡기 때문에(bg-slate-900) 글씨는 항상 흰색으로 둔다.
+   예전 dark:prose-invert 는 OS·브라우저가 다크 모드일 때만 적용돼, 라이트 모드에서는
+   prose 기본 글씨색(짙은 회색)이 검은 배경에 묻혔다. 테두리·구분선 색은 prose-invert 기본값을 쓴다. */
+.answer-body {
+  --tw-prose-invert-body: #fff;
+  --tw-prose-invert-headings: #fff;
+  --tw-prose-invert-lead: #fff;
+  --tw-prose-invert-links: #fff;
+  --tw-prose-invert-bold: #fff;
+  --tw-prose-invert-counters: #fff;
+  --tw-prose-invert-bullets: #fff;
+  --tw-prose-invert-quotes: #fff;
+  --tw-prose-invert-captions: #fff;
+  --tw-prose-invert-code: #fff;
+  --tw-prose-invert-pre-code: #fff;
+  --tw-prose-invert-kbd: #fff;
+}
+
 /* 선택: 코드/프리티어 스타일 조금 강화 */
 .prose :where(pre, code) {
   font-family:
